@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Função auxiliar para verificar se é dono do negócio
+    function isBusinessOwner(businessId) {
+      return request.auth != null && request.auth.uid == businessId;
+    }
+    
+    // Função auxiliar para verificar se é super admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+    
+    // Regras para usuários - ACESSO COMPLETO
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+      
+      // Subcoleção de clientes locais do estabelecimento
+      match /localCustomers/{customerId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Subcoleção de endereços de clientes
+      match /customerAddresses/{addressId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Subcoleção de taxas de entrega
+      match /deliveryFees/{feeId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // Regras para clientes globais - ACESSO COMPLETO PARA TODOS
+    match /globalCustomers/{customerId} {
+      allow read, write, create, delete: if request.auth != null;
+    }
+    
+    // Regras para produtos - ACESSO COMPLETO
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para categorias - ACESSO COMPLETO
+    match /categories/{categoryId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para subcategorias - ACESSO COMPLETO
+    match /subcategories/{subcategoryId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para ingredientes/suprimentos - ACESSO COMPLETO
+    match /supplies/{supplyId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para vendas/pedidos - ACESSO COMPLETO
+    match /orders/{orderId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para vendas (compatibilidade) - ACESSO COMPLETO
+    match /sales/{saleId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para mesas - ACESSO COMPLETO
+    match /tables/{tableId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para fornecedores - ACESSO COMPLETO
+    match /suppliers/{supplierId} {
+      allow read, write, create: if request.auth != null;
+    }
+    
+    // Regras para sessões de caixa - ACESSO COMPLETO
+    match /cashier_sessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para perfis de negócios - PÚBLICOS
+    match /businessProfiles/{profileId} {
+      allow read: if true;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para produtos de fornecedores - PÚBLICOS
+    match /supplierProducts/{productId} {
+      allow read: if true;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para ordens de compra - ACESSO COMPLETO
+    match /purchaseOrders/{orderId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+    
+    // Regras para sistema de fidelidade - ACESSO COMPLETO
+    match /loyaltyTransactions/{transactionId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+
+    match /loyaltyRewards/{rewardId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+
+    match /loyaltySettings/{settingsId} {
+      allow read: if request.auth != null;
+      allow write, create: if request.auth != null;
+    }
+  }
+}
