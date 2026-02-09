@@ -48,7 +48,7 @@ export const BusinessApp: React.FC = () => {
   }
 
   return (
-    <BusinessProvider>
+   // <BusinessProvider>
       <BusinessLayout>
         <Routes>
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -83,6 +83,6 @@ export const BusinessApp: React.FC = () => {
         <PrintManager />
         <AIMonitoringPanel />
       </BusinessLayout>
-    </BusinessProvider>
+   // </BusinessProvider>
   );
 };

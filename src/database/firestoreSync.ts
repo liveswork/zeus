@@ -1,5 +1,6 @@
 // src/database/firestoreSync.ts
 
+import { getDatabaseSafely } from '../database/databaseGuardian';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import {
   collection,
@@ -30,6 +31,42 @@ const jitter = (base: number) =>
 
 // controle de concorrência local
 const writeLocks = new Set<string>();
+
+function toIsoDate(v: any): string | undefined {
+  if (!v) return undefined;
+  if (typeof v === "string") return v;
+
+  // Firestore Timestamp-like (admin/sdk ou objeto serializado)
+  if (typeof v === "object" && typeof v.seconds === "number") {
+    return new Date(v.seconds * 1000).toISOString();
+  }
+
+  // Firestore Timestamp real (client)
+  if (typeof v?.toDate === "function") {
+    return v.toDate().toISOString();
+  }
+
+  return undefined;
+}
+
+function normalizeUser(doc: any) {
+  const name =
+    doc.name ??
+    doc.displayName ??
+    doc.companyName ??
+    (doc.email ? String(doc.email).split("@")[0] : "Sem nome");
+
+  return {
+    ...doc,
+    id: doc.id ?? doc.uid, // garante id
+    businessId: doc.businessId ?? doc.uid ?? doc.id, // garante businessId
+    name,
+    pinHash: doc.pinHash ?? "", // evita quebrar required
+    active: doc.active ?? true,
+    createdAt: toIsoDate(doc.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIsoDate(doc.updatedAt) ?? new Date().toISOString()
+  };
+}
 
 
 export const syncFirestore = async (
@@ -71,11 +108,18 @@ export const syncFirestore = async (
 
           if (change.type === 'added' || change.type === 'modified') {
 
-            const docData = change.doc.data();
+            let docData: any = change.doc.data();
 
-            if (docData.updatedAt instanceof Timestamp) {
-              docData.updatedAt =
-                docData.updatedAt.toDate().toISOString();
+            if (firestoreCollectionName === "users") {
+              docData = normalizeUser(docData);
+            } else {
+              // normalização padrão (mantém o que você já fazia)
+              if (docData.updatedAt instanceof Timestamp) {
+                docData.updatedAt = docData.updatedAt.toDate().toISOString();
+              }
+              if (docData.createdAt instanceof Timestamp) {
+                docData.createdAt = docData.createdAt.toDate().toISOString();
+              }
             }
 
             pullStream$.next({
@@ -134,11 +178,15 @@ export const syncFirestore = async (
       batchSize: 100, // maior throughput
 
       modifier: (docData) => {
-        if (docData.updatedAt &&
-          typeof docData.updatedAt !== 'string') {
+        if (firestoreCollectionName === "users") {
+          return normalizeUser(docData);
+        }
 
-          docData.updatedAt =
-            docData.updatedAt.toDate().toISOString();
+        if (docData.updatedAt && typeof docData.updatedAt !== "string") {
+          docData.updatedAt = docData.updatedAt.toDate().toISOString();
+        }
+        if (docData.createdAt && typeof docData.createdAt !== "string") {
+          docData.createdAt = docData.createdAt.toDate().toISOString();
         }
 
         return docData;
@@ -165,12 +213,17 @@ export const syncFirestore = async (
         const snapshot = await getDocs(q);
 
         const documents = snapshot.docs.map(d => {
+          let data: any = d.data();
 
-          const data = d.data();
-
-          if (data.updatedAt instanceof Timestamp) {
-            data.updatedAt =
-              data.updatedAt.toDate().toISOString();
+          if (firestoreCollectionName === "users") {
+            data = normalizeUser(data);
+          } else {
+            if (data.updatedAt instanceof Timestamp) {
+              data.updatedAt = data.updatedAt.toDate().toISOString();
+            }
+            if (data.createdAt instanceof Timestamp) {
+              data.createdAt = data.createdAt.toDate().toISOString();
+            }
           }
 
           return data;

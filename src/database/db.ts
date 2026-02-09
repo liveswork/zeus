@@ -61,7 +61,7 @@ const _createDatabase = async () => {
     }
 
     const db = await createRxDatabase({
-        name: 'zeusdb_v20',
+        name: 'zeusdb_v21',
         storage: storage,
         multiInstance: false,
         // ignoreDuplicate: false 
