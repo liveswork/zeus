@@ -2,17 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Adicione esta nova seção */
 @layer utilities {
+  /* Animação de flutuar */
   @keyframes float {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
   }
   .animate-float {
     animation: float 4s ease-in-out infinite;
+  }
+
+  /* Ocultar barra de rolagem (Chrome, Safari, Opera) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Ocultar barra de rolagem (IE, Edge, Firefox) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
   }
 }

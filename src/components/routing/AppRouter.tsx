@@ -36,8 +36,13 @@ const SupplierDirectory = React.lazy(() =>
   import('../public/supplier/SupplierDirectory').then(module => ({ default: module.SupplierDirectory }))
 );
 const RetailDirectory = React.lazy(() => 
-  import('../public/business/Retail/RetailDirectory').then(module => ({ default: module.RetailDirectory }))
+  import('../public/business/Retail/directory/RetailDirectory').then(module => ({ default: module.RetailDirectory }))
 );
+
+const PublicRetailCatalogPage = React.lazy(() => 
+  import('../public/business/Retail/catalog/PublicRetailCatalogPage').then(module => ({ default: module.PublicRetailCatalogPage }))
+);
+
 const PublicCatalogPage = React.lazy(() => 
   import('../public/business/food/catalog/PublicCatalogPage').then(module => ({ default: module.PublicCatalogPage }))
 );
@@ -66,6 +71,8 @@ export const AppRouter: React.FC = () => {
             <Route path="/fornecedores" element={<SupplierDirectory />} />
             <Route path="/lojas" element={<RetailDirectory />} />
             <Route path="/catalogo/:restaurantId" element={<PublicCatalogPage />} />
+            {/* ✅ ADICIONE ESTA LINHA: Rota do Catálogo de Varejo */}
+            <Route path="/loja/:storeId" element={<PublicRetailCatalogPage />} />
             <Route path="/fornecedor/:supplierId" element={<PublicSupplierCatalogPage />} />
             
             {/* Auth Routes */}
