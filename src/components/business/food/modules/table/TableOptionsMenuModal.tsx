@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal } from '../../../ui/Modal';
+import { Modal } from '../../../../ui/Modal';
 import { Printer, XCircle, Trash2, Repeat } from 'lucide-react';
 
 interface TableOptionsMenuModalProps {

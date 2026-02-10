@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal } from '../../../ui/Modal';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Modal } from '../../../../ui/Modal';
+import { formatCurrency } from '../../../../../utils/formatters';
 
 interface QuantityModalProps {
     isOpen: boolean;

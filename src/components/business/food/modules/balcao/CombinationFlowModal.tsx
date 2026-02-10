@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal } from '../../../ui/Modal';
-import { FormField } from '../../../ui/FormField';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Modal } from '../../../../ui/Modal';
+import { FormField } from '../../../../ui/FormField';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { Pizza, Search, X, Plus, Edit2, Check } from 'lucide-react';
 import { ProductSelectionModal } from './ProductSelectionModal';
 import { ObservationModal } from './ObservationModal';

@@ -1,18 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronsLeft, Search, MoreVertical, Circle, HelpCircle } from 'lucide-react';
-import { useBusiness } from '../../../../contexts/BusinessContext';
-import { useUI } from '../../../../contexts/UIContext';
+import { useBusiness } from '../../../../../contexts/BusinessContext';
+import { useUI } from '../../../../../contexts/UIContext';
 import { doc, updateDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { db, functions } from '../../../../config/firebase';
-import { usePrintManager } from '../../../../hooks/usePrintManager';
+import { db, functions } from '../../../../../config/firebase';
+import { usePrintManager } from '../../../../../hooks/usePrintManager';
 import { OrderModal } from './OrderModal';
 import { TableActionFooter } from './TableActionFooter';
 import { PreCloseModal } from './PreCloseModal';
 import { PaymentModal } from './PaymentModal';
 import { TableOptionsMenuModal } from './TableOptionsMenuModal';
-import { Order, Table } from '../../../../types';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Order, Table } from '../../../../../types';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { httpsCallable } from 'firebase/functions';
 
 import { TableManagerTour, mainPageSteps, modalSteps } from './TableManagerTour';
@@ -20,8 +20,8 @@ import { EVENTS, ACTIONS, STATUS } from 'react-joyride';
 import { CancelItemsModal } from './CancelItemsModal';
 
 // ✅ Novos botões Nexus Vision AI
-import { ScanComandaButton } from '../common/ScanComandaButton';
-import { ComandaScanner } from '../composer/ComandaScanner';
+import { ScanComandaButton } from '../../../modules/common/ScanComandaButton';
+import { ComandaScanner } from '../../../modules/composer/ComandaScanner';
 
 const createOrderWithSequentialId = httpsCallable(functions, 'createOrderWithSequentialId');
 const finalizeSaleAndProcessAffiliate = httpsCallable(functions, 'finalizeSaleAndProcessAffiliate');

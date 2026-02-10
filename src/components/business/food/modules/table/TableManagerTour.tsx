@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Joyride, { Step, CallBackProps } from 'react-joyride';
-import { TourTooltip } from '../../../ui/TourTooltip';
+import { TourTooltip } from '../../../../ui/TourTooltip';
 
 interface TableManagerTourProps {
   run: boolean;

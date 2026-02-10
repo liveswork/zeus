@@ -1,18 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { subscriptionGuard } from '../../../../services/subscriptionGuard';
+import { subscriptionGuard } from '../../../../../services/subscriptionGuard';
 import { Plus, Minus, ShoppingCart, ArrowLeft, Split, User, Search, X, Image as ImageIcon } from 'lucide-react';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { useBusiness } from '../../../../contexts/BusinessContext';
-import { useUI } from '../../../../contexts/UIContext';
-import { formatCurrency } from '../../../../utils/formatters';
-import { usePrintManager } from '../../../../hooks/usePrintManager';
+import { useAuth } from '../../../../../contexts/AuthContext';
+import { useBusiness } from '../../../../../contexts/BusinessContext';
+import { useUI } from '../../../../../contexts/UIContext';
+import { formatCurrency } from '../../../../../utils/formatters';
+import { usePrintManager } from '../../../../../hooks/usePrintManager';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../../../config/firebase';
+import { functions } from '../../../../../config/firebase';
 
 // Modais
-import { PaymentModal } from '../delivery/PaymentModal';
+import { PaymentModal } from '../../../modules/delivery/PaymentModal';
 import { CombinationFlowModal } from './CombinationFlowModal';
-import { ProductCustomizationModal } from '../common/ProductCustomizationModal';
+import { ProductCustomizationModal } from '../../../modules/common/ProductCustomizationModal';
 
 const createOrderWithSequentialId = httpsCallable(functions, 'createOrderWithSequentialId');
 

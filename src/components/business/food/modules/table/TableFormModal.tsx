@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Clipboard, MapPin, Users, Save } from 'lucide-react';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../config/firebase';
-import { useBusiness } from '../../../contexts/BusinessContext';
-import { Modal } from '../../ui/Modal';
-import { FormField } from '../../ui/FormField';
-import { useUI } from '../../../contexts/UIContext';
-import { Table } from '../../../types';
+import { db } from '../../../../../config/firebase';
+import { useBusiness } from '../../../../../contexts/BusinessContext';
+import { Modal } from '../../../../ui/Modal';
+import { FormField } from '../../../../ui/FormField';
+import { useUI } from '../../../../../contexts/UIContext';
+import { Table } from '../../../../../types';
 
 interface TableFormModalProps {
   isOpen: boolean;

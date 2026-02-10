@@ -6,7 +6,7 @@ import { Modal } from '../../../ui/Modal';
 import { FormField } from '../../../ui/FormField';
 import { useUI } from '../../../../contexts/UIContext';
 import { formatCurrency } from '../../../../utils/formatters';
-import { CombinationFlowModal } from '../balcao/CombinationFlowModal';
+import { CombinationFlowModal } from '../../food/modules/balcao/CombinationFlowModal';
 import { NexusUpsellWidget } from '../../../ai/NexusUpsellWidget';
 import { ProductCustomizationModal } from '../common/ProductCustomizationModal';
 import { MobileOrderCreation } from './MobileOrderCreation';

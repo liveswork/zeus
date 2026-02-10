@@ -7,9 +7,9 @@ import { BusinessLayout } from './layout/BusinessLayout';
 
 // Importe todos os módulos do Business
 import { Dashboard } from './modules/Dashboard';
-import { SalesManager } from './modules/balcao/SalesManager';
+import { SalesManager } from './food/modules/balcao/SalesManager';
 import { CashierManager } from './modules/CashierManager';
-import { TableManager } from './modules/table/TableManager';
+import { TableManager } from './food/modules/table/TableManager';
 import { PDVManager } from './modules/PDVManager';
 import { DeliveryManager } from './modules/DeliveryManager';
 import { CampaignManager } from './modules/marketing/CampaignManager';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal } from '../../../ui/Modal';
+import { Modal } from '../../../../ui/Modal';
 
 // Um modal pequeno e focado para adicionar observações.
 

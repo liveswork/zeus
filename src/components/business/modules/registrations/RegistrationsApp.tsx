@@ -3,7 +3,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProductsManager } from '../ProductsManager';
 import { SuppliesManager } from '../SuppliesManager';
-import { TablesManager } from '../TablesManager';
+import { TablesManager } from '../../food/modules/table/TablesManager';
 import { CategoriesManager } from './CategoriesManager';
 import { CustomersManager } from './CustomersManager';
 import { SuppliersManager } from './SuppliersManager';

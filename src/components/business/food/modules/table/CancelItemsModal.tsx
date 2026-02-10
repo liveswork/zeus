@@ -1,9 +1,9 @@
 // src/components/business/modules/table/CancelItemsModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Modal } from '../../../ui/Modal';
-import { Order, OrderItem } from '../../../../types';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Modal } from '../../../../ui/Modal';
+import { Order, OrderItem } from '../../../../../types';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { XCircle, Trash2, Plus, Minus, AlertTriangle } from 'lucide-react';
 
 interface CancelItemsModalProps {

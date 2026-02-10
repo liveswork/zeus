@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { PlusCircle, Edit, Trash2, Clipboard, AlertTriangle } from 'lucide-react';
-import { useBusiness } from '../../../contexts/BusinessContext';
-import { useUI } from '../../../contexts/UIContext';
-import { TableFormModal } from './TableFormModal';
+import { useBusiness } from '../../../../../contexts/BusinessContext';
+import { useUI } from '../../../../../contexts/UIContext';
+import { TableFormModal } from '../../../food/modules/table/TableFormModal';
 
 export const TablesManager: React.FC = () => {
   const { tables } = useBusiness();

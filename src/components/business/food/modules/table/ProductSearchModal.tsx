@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Modal } from '../../../ui/Modal';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Modal } from '../../../../ui/Modal';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { Search, Package } from 'lucide-react';
-import { Product } from '../../../../types';
+import { Product } from '../../../../../types';
 
 interface ProductSearchModalProps {
     isOpen: boolean;

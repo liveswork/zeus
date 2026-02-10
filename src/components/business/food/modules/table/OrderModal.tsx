@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Modal } from '../../../ui/Modal';
+import { Modal } from '../../../../ui/Modal';
 import { Search, Plus, Minus, MessageSquare, Utensils, ScanLine, Pizza } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
-import { useBusiness } from '../../../../contexts/BusinessContext';
+import { formatCurrency } from '../../../../../utils/formatters';
+import { useBusiness } from '../../../../../contexts/BusinessContext';
 import { ObservationModal } from '../balcao/ObservationModal';
 import { ProductSearchModal } from './ProductSearchModal';
-import { ComandaScanner } from '../composer/ComandaScanner';
+import { ComandaScanner } from '../../../modules/composer/ComandaScanner';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../../../config/firebase';
+import { functions } from '../../../../../config/firebase';
 import { CombinationFlowModal } from '../balcao/CombinationFlowModal';
-import { ProductCustomizationModal } from '../common/ProductCustomizationModal';
+import { ProductCustomizationModal } from '../../../modules/common/ProductCustomizationModal';
 
 const processComandaScan = httpsCallable(functions, 'processComandaScan');
 

@@ -24,20 +24,26 @@ import { db } from '../../../config/firebase';
 // Mapeamento de Rota: Conecta a "Chave da Feature" com o "Link do Navegador"
 // Isso separa a definição do botão (ícone/nome) do destino dele.
 const PATH_MAPPING: Record<string, string> = {
-  'dashboard': '/painel/dashboard',
+'dashboard': '/painel/dashboard',
   'bi_dashboard': '/painel/reports',
   'vendas_pdv': '/painel/pdv',
   'vendas_mesas': '/painel/tables',
   'vendas_balcao': '/painel/sales',
   'vendas_delivery': '/painel/delivery',
   'caixa_atual': '/painel/cashier',
-  'financeiro_contas_pagar': '/painel/debts',
-  'marketing': '/painel/marketing',
-  'cadastros_produtos': '/painel/products',
-  'cadastros_clientes': '/painel/customers',
+  'financeiro_contas_pagar': '/painel/financeiro/contas-a-pagar',
+  'marketing': '/painel/marketing/campanhas',
+  'cadastros_produtos': '/painel/registrations/products',
+  'cadastros_clientes': '/painel/registrations/customers',
+  'cadastros_fornecedores': '/painel/registrations/suppliers',
+  'cadastros_funcionarios': '/painel/registrations/employees',
+  'cadastros_entregas': '/painel/registrations/delivery-fees',
+  'cadastros_empresa': '/painel/registrations/company',
   'configuracoes': '/painel/settings',
-  'marketplace_compras': '/painel/purchases', // Exemplo Nexus
-  'extensoes': '/painel/extensions'
+  'marketplace_compras': '/painel/marketplace',
+  'extensoes': '/painel/extensoes',
+  'whatsapp_chat': '/painel/whatsapp_chat',
+  'composer': '/painel/composer'
 };
 
 // Componente para a nova barra de navegação inferior

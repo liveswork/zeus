@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal } from '../../../ui/Modal';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Modal } from '../../../../ui/Modal';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { Search } from 'lucide-react';
 
 // Este é o modal secundário, reutilizável, que aparece para o usuário buscar e selecionar os sabores.

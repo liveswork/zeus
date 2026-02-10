@@ -10,6 +10,7 @@ import { NexusAdminDashboard } from './modules/NexusAdminDashboard';
 import { MigrationApp } from './modules/migration/MigrationApp';
 import { BroadcastManager } from './modules/BroadcastManager'; 
 import { BusinessTypeManager } from './modules/BusinessTypeManager';
+import { TaxonomyManager } from './modules/TaxonomyManager';
 
 export const AdminApp: React.FC = () => {
   return (
@@ -27,6 +28,10 @@ export const AdminApp: React.FC = () => {
 
         {/* ✅ NOVA ROTA ADICIONADA */}
         <Route path="/business-types" element={<BusinessTypeManager />} />
+
+        {/* ✅ ROTAS QUE FALTAVAM (CORREÇÃO DO CRASH) */}
+        <Route path="categories" element={<TaxonomyManager />} />
+        <Route path="subcategories" element={<TaxonomyManager />} />
 
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
