@@ -11,8 +11,9 @@ import {
   Zap, 
   Wrench, 
   MessageSquare,
-  Layers, // Ícone para Categorias
-  Tags    // Ícone para Subcategorias
+  Layers, 
+  Tags,
+  Briefcase // <--- IMPORTANTE: Importar este ícone novo
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -28,10 +29,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/painel/dashboard', icon: Home },
     { name: 'Usuários', href: '/painel/users', icon: Users },
     
-    // --- NOVAS OPÇÕES DO ADMIN MASTER ---
+    // --- GESTÃO DE MENU E NEGÓCIOS (O Cérebro) ---
+    { name: 'Tipos de Negócio', href: '/painel/business-types', icon: Briefcase }, // <--- ADICIONADO AQUI
+    
     { name: 'Categorias Globais', href: '/painel/categories', icon: Layers },
     { name: 'Subcategorias', href: '/painel/subcategories', icon: Tags },
-    // ------------------------------------
 
     { name: 'Planos', href: '/painel/plans', icon: Clipboard },
     { name: 'Extensões', href: '/painel/extensions', icon: Package },
@@ -46,7 +48,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-60 bg-slate-800 text-white flex flex-col p-3 shadow-2xl">
+      <aside className="w-60 bg-slate-800 text-white flex flex-col p-3 shadow-2xl h-full fixed md:relative z-20">
         {/* Profile Section */}
         <div className="flex items-center gap-3 p-3 border-b border-slate-700 mb-4">
           <div className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-xl bg-red-600 border-2 border-slate-600 shadow-inner">
@@ -87,7 +89,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </nav>
 
         {/* Footer Actions */}
-        <div className="border-t border-slate-700 pt-4">
+        <div className="border-t border-slate-700 pt-4 mt-auto">
           <button 
             onClick={logout} 
             className="w-full flex items-center p-3 rounded-xl text-gray-400 hover:bg-red-600 hover:text-white transition-all duration-200"
@@ -99,7 +101,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto bg-[#f8fafc]">
+      <main className="flex-1 p-8 overflow-y-auto bg-[#f8fafc] w-full ml-60"> {/* ml-60 compensa o fixed sidebar se necessário */}
         {children}
       </main>
     </div>

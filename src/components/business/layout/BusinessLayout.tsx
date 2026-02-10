@@ -1,17 +1,44 @@
-import React, { useState, ReactNode } from 'react';
-import { subscriptionGuard } from '../../../services/subscriptionGuard';
-import { href, Link, useLocation } from 'react-router-dom';
+//src/components/business/layout/BusinessLayout.tsx
+
+import React, { useState, useEffect, ReactNode ,  useMemo } from 'react';
+import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import {
-  Home, Package, ShoppingCart, Clipboard, Wallet, BarChart2,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, Edit, Crown,
-  Truck, User, Users, MapPin, Building, UserCheck,
-  TrendingUp, Zap, ShoppingBag, PenSquare, MessagesSquare, SlidersHorizontal
+  Menu, X, LogOut, ChevronDown,
+  LayoutDashboard, // Ícone padrão caso falte
+  Store,
+  Crown,
+  Home,
+  Truck,
+  Wallet,
+  Clipboard
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
-interface BusinessLayoutProps {
-  children: ReactNode;
-}
+// --- IMPORTAÇÕES DO PILAR 1 E FIREBASE ---
+import { FEATURE_MAP, MENU_GROUPS } from '../../../config/features';
+import { doc, getDoc } from 'firebase/firestore';
+import { subscriptionGuard } from '../../../services/subscriptionGuard';
+import { db } from '../../../config/firebase';
+
+// Mapeamento de Rota: Conecta a "Chave da Feature" com o "Link do Navegador"
+// Isso separa a definição do botão (ícone/nome) do destino dele.
+const PATH_MAPPING: Record<string, string> = {
+  'dashboard': '/app',
+  'bi_dashboard': '/app/bi',
+  'vendas_pdv': '/app/pdv',
+  'vendas_mesas': '/app/tables',
+  'vendas_balcao': '/app/sales',
+  'vendas_delivery': '/app/delivery',
+  'caixa_atual': '/app/cashier',
+  'financeiro_contas_pagar': '/app/debts',
+  'marketing': '/app/marketing',
+  'cadastros_produtos': '/app/products',
+  'cadastros_clientes': '/app/customers',
+  'configuracoes': '/app/settings',
+  'marketplace_compras': '/app/purchases', // Exemplo Nexus
+  'extensoes': '/app/extensions'
+};
 
 // Componente para a nova barra de navegação inferior
 const MobileBottomNav: React.FC = () => {
@@ -41,202 +68,203 @@ const MobileBottomNav: React.FC = () => {
     );
 };
 
-export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
+export const BusinessLayout: React.FC = () => {
   const { userProfile, logout } = useAuth();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
-  // Defina as rotas de tela cheia onde a sidebar não deve ser exibida
-  const fullScreenRoutes = ['/painel/pdv', '/painel/delivery', '/painel/sales', '/painel/tables'];
-  const isFullScreenPage = fullScreenRoutes.includes(location.pathname);
+  const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Defina a navegação com base no plano de assinatura do usuário      
-  const navigation = [
-    { name: 'Inicio', href: '/painel/dashboard', icon: Home },
-    { name: 'Caixa', href: '/painel/cashier', icon: Wallet },
-    {
-        name: 'Impulso Marketing',
-        href: '/painel/marketing',
-        icon: TrendingUp,
-        submenu: [
-            { name: 'Campanhas', href: '/painel/marketing/campanhas', icon: TrendingUp },
-            // --- [NOVO] Módulos FoodVerse e BI ---
-            { name: 'Card de Essência', href: '/painel/foodverse/essencia', icon: Edit },
-            { name: 'Jornadas', href: '/painel/foodverse/jornadas', icon: Zap },
-            { name: 'Eventos ao Vivo', href: '/painel/foodverse/eventos', icon: Zap },
-            { name: 'Business Intelligence', href: '/painel/bi', icon: BarChart2 },
-        ]
-    },
-   // ...(subscriptionGuard.hasAccess('marketing_advanced') ? [{ name: 'Impulso Marketing', href: '/painel/marketing', icon: TrendingUp }] : []),
-    
-    {
-      name: 'Vendas',
-      href: '/painel/sales',
-      icon: ShoppingCart,
-      submenu: [
-        { name: 'Venda Rápida (Balcão)', href: '/painel/sales', icon: ShoppingCart },
-        { name: 'Mesas / Comandas', href: '/painel/tables', icon: Clipboard },
-       // ...(subscriptionGuard.hasAccess('mesas_comandas') ? [{ name: 'Mesas / Comandas', href: '/painel/tables', icon: Clipboard }] : []),
-       // { name: 'PDV (Varejo)', href: '/painel/pdv', icon: ShoppingCart },
-        { name: 'Delivery', href: '/painel/delivery', icon: Truck },
-      ]
-    },
-    { name: 'Chat Ativo', href: '/painel/whatsapp_chat', icon: MessagesSquare },
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
+  const [availableMenu, setAvailableMenu] = useState<any>({});
+  const [loadingMenu, setLoadingMenu] = useState(true);
 
-    {
-      name: 'Compras',
-      href: '/painel/compras', // Rota base para o grupo
-      icon: ShoppingBag,
-      submenu: [
-        { name: 'Marketplace', href: '/painel/compras/suppliers', icon: Truck },
-        ...(subscriptionGuard.hasAccess('nexus_ai')
-          ? [{ name: 'Assistente Nexus', href: '/painel/compras/nexus-ai', icon: Zap }]
-          : [])
-      ]
-    },
-    {
-        name: 'Financeiro',
-        href: '/painel/financeiro',
-        icon: Wallet, // Ícone apropriado para financeiro
-        submenu: [
-            { name: 'Contas a Pagar', href: '/painel/financeiro/contas-a-pagar', icon: Wallet },
-        ]
-    },
-    {
-      name: 'Estúdio de Criação',
-      href: '/painel/composer',
-      icon: PenSquare,
-      submenu: [
-          { name: 'Comandas de Massa', href: '/painel/composer', icon: PenSquare },
-      ]
-    },
+  // Fecha sidebar no mobile ao trocar de rota
+  useEffect(() => {
+    if (isMobile) setIsSidebarOpen(false);
+  }, [location.pathname, isMobile]);
 
-    {
-      name: 'Cadastros',
-      href: '/painel/registrations',
-      icon: Users,
-      submenu: [
-        { name: 'Produtos', href: '/painel/registrations/products', icon: Package },
-        { name: 'Categorias', href: '/painel/registrations/categories', icon: Edit },
-        { name: 'Ingredientes', href: '/painel/registrations/supplies', icon: Package },
-        { name: 'Complementos', href: '/painel/registrations/addons', icon: SlidersHorizontal },
-        { name: 'Mesas', href: '/painel/registrations/tables', icon: Clipboard },
-        { name: 'Clientes', href: '/painel/registrations/customers', icon: Users },
-        { name: 'Fornecedores', href: '/painel/registrations/suppliers', icon: Truck },
-        { name: 'Funcionários', href: '/painel/registrations/employees', icon: UserCheck },
-        { name: 'Taxas de Entrega', href: '/painel/registrations/delivery-fees', icon: MapPin },
-        { name: 'Dados da Empresa', href: '/painel/registrations/company', icon: Building },
-      ]
-    },
-    { name: 'Relatórios', href: '/painel/reports', icon: BarChart2 },
-    { name: 'Extensões', href: '/painel/extensoes', icon: Package },
-    { name: 'Configurações', href: '/painel/settings', icon: Settings },
-  ];
+  // --- LÓGICA DO PILAR 3: CARREGAR MENU DINÂMICO ---
+  useEffect(() => {
+    const fetchBusinessConfig = async () => {
+      // Se o usuário não tiver tipo de negócio definido, aborta
+      if (!userProfile?.businessProfile?.type) {
+        setLoadingMenu(false);
+        return;
+      }
 
-  // ... restante do componente sem alterações
-  const isActive = (href: string) => location.pathname === href;
-  const isSubmenuActive = (submenu: any[]) => submenu?.some(item => location.pathname === item.href);
+      setLoadingMenu(true);
+      try {
+        // 1. Pega os IDs que estão no perfil do usuário
+        const mainCategoryKey = userProfile.businessProfile.type; // ex: food_service
+        const subCategoryKey = userProfile.businessProfile.subCategory; // ex: pizzaria
 
-  // Se for uma página de tela cheia, não renderizamos a sidebar
-  if (isFullScreenPage) {
-    return (
-      <div className="flex h-screen bg-gray-100">
-        <main className="flex-1 p-0 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    );
-  } 
+        // 2. Vai na coleção ANTIGA 'business_categories' buscar as regras
+        const configRef = doc(db, 'business_categories', mainCategoryKey);
+        const configSnap = await getDoc(configRef);
+
+        let allowedFeatures: string[] = [];
+
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+
+          // Procura a subcategoria correta dentro do array
+          const subCategoryData = data.subCategories?.find((sub: any) => sub.key === subCategoryKey);
+
+          if (subCategoryData && subCategoryData.features) {
+            // ACHOU! Usa as features salvas no banco antigo
+            allowedFeatures = subCategoryData.features;
+          } else {
+            // Se não achar, usa um básico de segurança
+            allowedFeatures = ['dashboard', 'configuracoes'];
+          }
+        } else {
+          // Fallback se a categoria não existir
+          allowedFeatures = ['dashboard', 'configuracoes'];
+        }
+
+        // 3. Monta o menu visualmente
+        const grouped: any = {};
+        Object.keys(MENU_GROUPS).forEach(g => grouped[g] = []);
+
+        allowedFeatures.forEach(key => {
+          const feature = FEATURE_MAP[key];
+          if (feature && PATH_MAPPING[key]) {
+            const group = feature.group || 'main';
+            if (!grouped[group]) grouped[group] = [];
+
+            grouped[group].push({
+              key,
+              label: feature.label,
+              icon: feature.icon,
+              path: PATH_MAPPING[key]
+            });
+          }
+        });
+
+        setAvailableMenu(grouped);
+      } catch (error) {
+        console.error("Erro ao carregar menu:", error);
+      } finally {
+        setLoadingMenu(false);
+      }
+    };
+
+    fetchBusinessConfig();
+  }, [userProfile]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao sair', error);
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className={`hidden lg:flex ${isSidebarOpen ? 'w-60' : 'w-20'} bg-slate-800 text-white flex-col p-3 transition-all duration-300`}>
-        {/* Profile Section */}
-        <div className="flex items-center gap-3 p-3 border-b border-slate-700 mb-4">
-          <div className="w-12 h-12 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-xl bg-blue-600 overflow-hidden border-2 border-slate-600">
-            {userProfile?.logoUrl ? (
-              <img src={userProfile.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-            ) : (
-              userProfile?.companyName?.charAt(0) || 'A'
-            )}
-          </div>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Overlay Mobile */}
+      {isMobile && isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
-          {isSidebarOpen && (
-            <div className="flex-grow overflow-hidden">
-              <p className="font-bold text-white text-md whitespace-nowrap truncate">
-                {userProfile?.companyName}
-              </p>
-              <p className="text-xs text-blue-300">Administrador</p>
+      {/* Sidebar */}
+      <aside
+        className={`
+                    fixed md:relative z-50 h-full bg-white border-r border-gray-200 shadow-xl md:shadow-none
+                    transition-all duration-300 ease-in-out flex flex-col
+                    ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-20 md:translate-x-0'}
+                `}
+      >
+        {/* Logo Area */}
+        <div className="h-16 flex items-center justify-center border-b border-gray-100 px-4">
+          {isSidebarOpen ? (
+            <h1 className="text-2xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              NEXXUS OS
+            </h1>
+          ) : (
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+              N
             </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-grow overflow-y-auto">
-          <ul className="space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const hasSubmenu = item.submenu && item.submenu.length > 0;
-              const isItemActive = isActive(item.href) || (hasSubmenu && isSubmenuActive(item.submenu));
+        {/* --- MENU DINÂMICO RENDERIZADO AQUI --- */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-hide">
+          {loadingMenu ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            // Ordena os grupos (Main -> Vendas -> Financeiro...)
+            Object.entries(MENU_GROUPS)
+              .sort(([, a]: any, [, b]: any) => a.order - b.order)
+              .map(([groupKey, groupConfig]: any) => {
+                const items = availableMenu[groupKey];
 
-              return (
-                <li key={item.name} className="space-y-1">
-                  {hasSubmenu ? (
-                    <div>
-                      <div className={`w-full flex items-center p-3 rounded-lg transition-colors duration-200 ${isItemActive
-                          ? 'bg-slate-700 text-white'
-                          : 'text-gray-400 hover:bg-slate-700 hover:text-white'
-                        }`}>
-                        <Icon size={20} />
-                        <span className={`ml-4 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                          {item.name}
-                        </span>
-                      </div>
-                      {isSidebarOpen && (
-                        <ul className="ml-6 space-y-1">
-                          {item.submenu.map((subItem) => {
-                            const SubIcon = subItem.icon;
-                            return (
-                              <li key={subItem.name}>
-                                <Link
-                                  to={subItem.href}
-                                  className={`w-full flex items-center p-2 rounded-lg transition-colors duration-200 text-sm ${isActive(subItem.href)
-                                      ? 'bg-blue-600 text-white'
-                                      : 'text-gray-400 hover:bg-slate-600 hover:text-white'
-                                    }`}
-                                >
-                                  <SubIcon size={16} />
-                                  <span className="ml-3">{subItem.name}</span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
+                // Se o grupo não tem itens habilitados para esse usuário, não renderiza
+                if (!items || items.length === 0) return null;
+
+                return (
+                  <div key={groupKey}>
+                    {/* Título do Grupo (Só mostra se Sidebar aberta) */}
+                    {isSidebarOpen && (
+                      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                        {groupConfig.label}
+                      </h3>
+                    )}
+
+                    <div className="space-y-1">
+                      {items.map((item: any) => {
+                        const isActive = location.pathname === item.path;
+                        const Icon = item.icon || LayoutDashboard;
+
+                        return (
+                          <Link
+                            key={item.key}
+                            to={item.path}
+                            className={`
+                                                            flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative
+                                                            ${isActive
+                                ? 'bg-blue-50 text-blue-600 font-medium shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                              }
+                                                        `}
+                            title={!isSidebarOpen ? item.label : ''}
+                          >
+                            <Icon
+                              size={20}
+                              className={`
+                                                                ${isActive ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'}
+                                                                ${!isSidebarOpen && 'mx-auto'}
+                                                            `}
+                            />
+
+                            {isSidebarOpen && (
+                              <span className="ml-3 truncate">{item.label}</span>
+                            )}
+
+                            {/* Tooltip quando fechado */}
+                            {!isSidebarOpen && (
+                              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                                {item.label}
+                              </div>
+                            )}
+                          </Link>
+                        );
+                      })}
                     </div>
-                  ) : (
-                    <Link
-                      to={item.href}
-                      className={`w-full flex items-center p-3 rounded-lg transition-colors duration-200 ${isActive(item.href)
-                          ? 'bg-slate-700 text-white'
-                          : 'text-gray-400 hover:bg-slate-700 hover:text-white'
-                        }`}
-                    >
-                      <Icon size={20} />
-                      <span className={`ml-4 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                        {item.name}
-                      </span>
-                    </Link>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                  </div>
+                );
+              })
+          )}
         </nav>
 
-        {/* Footer Actions */}
-        <div className="border-t border-gray-700 p-4">
+        {/* Footer do Sidebar */}
+        <div className="p-4 border-t border-gray-100">
           <Link to="/painel/assinatura">
             <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white p-3 rounded-lg transition-all duration-200 flex items-center justify-center mb-3">
               <Crown className="w-5 h-5 mr-2" />
@@ -246,44 +274,54 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
               </div>
             </button>
           </Link>
-
           <button
-            onClick={logout}
-            className="w-full flex items-center p-3 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition duration-200"
+            onClick={handleLogout}
+            className={`
+                            flex items-center w-full px-3 py-2 text-red-600 rounded-lg hover:bg-red-50 transition-colors
+                            ${!isSidebarOpen && 'justify-center'}
+                        `}
           >
-            {isSidebarOpen ? (
-              <>
-                <LogOut size={20} />
-                <span className="ml-4">Sair</span>
-              </>
-            ) : (
-              <LogOut size={20} className="mx-auto" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="w-full flex items-center p-3 rounded-lg text-gray-300 hover:bg-blue-800 mt-2"
-          >
-            {isSidebarOpen ? (
-              <>
-                <ChevronsLeft size={20} />
-                <span className="ml-4">Recolher</span>
-              </>
-            ) : (
-              <ChevronsRight size={20} className="mx-auto" />
-            )}
+            <LogOut size={20} />
+            {isSidebarOpen && <span className="ml-3 font-medium">Sair</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto lg:p-8 p-4 pb-24">
-        {children}
+      {/* Conteúdo Principal */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Header Mobile / Toggle Desktop */}
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="flex items-center space-x-4">
+            <div className="text-right hidden md:block">
+              <p className="text-sm font-bold text-gray-900">
+                {userProfile?.companyName || userProfile?.displayName}
+              </p>
+              <p className="text-xs text-gray-500 capitalize">
+                {userProfile?.businessProfile?.type?.replace('_', ' ') || 'Empresa'}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold border border-blue-200">
+              <Store size={16} />
+            </div>
+          </div>
+        </header>
+
+        {/* Área de Scroll do Conteúdo */}
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <Outlet />
+        </div>
       </main>
 
       {/* Nova Navegação Mobile */}
       <MobileBottomNav />
+
     </div>
   );
 };

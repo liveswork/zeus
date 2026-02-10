@@ -55,7 +55,7 @@ export const BusinessApp: React.FC = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="sales" element={<SalesManager />} />
           <Route path="cashier" element={<CashierManager />} />
-          <Route path="tables" element={<TableManager />} />
+          <Route path="/tables" element={<TableManager />} />
           <Route path="pdv" element={<PDVManager />} />
           <Route path="delivery" element={<DeliveryManager />} />
           <Route path="marketing/campanhas" element={<CampaignManager />} />

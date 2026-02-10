@@ -9,6 +9,7 @@ import { ExtensionsManager } from './modules/ExtensionsManager';
 import { NexusAdminDashboard } from './modules/NexusAdminDashboard';
 import { MigrationApp } from './modules/migration/MigrationApp';
 import { BroadcastManager } from './modules/BroadcastManager'; 
+import { BusinessTypeManager } from './modules/BusinessTypeManager';
 
 export const AdminApp: React.FC = () => {
   return (
@@ -23,6 +24,10 @@ export const AdminApp: React.FC = () => {
         <Route path="tools/*" element={<MigrationApp />} />
         <Route path="broadcast-studio" element={<BroadcastManager />} />
         <Route path="settings" element={<AdminSettings />} />
+
+        {/* ✅ NOVA ROTA ADICIONADA */}
+        <Route path="/business-types" element={<BusinessTypeManager />} />
+
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </AdminLayout>

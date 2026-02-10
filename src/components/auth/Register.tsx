@@ -1,5 +1,3 @@
-// src/components/auth/Register.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Utensils, Phone } from 'lucide-react';
@@ -7,9 +5,8 @@ import { FormField } from '../ui/FormField';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Importe a configuração do db
+import { db } from '../../config/firebase';
 
-// Conexão com a sua Cloud Function
 const functions = getFunctions();
 const registerUserAndCustomer = httpsCallable(functions, 'registerUserAndCustomer');
 
@@ -19,8 +16,9 @@ export const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // NOVO: Estado para carregar as opções de fornecedor
-  const [supplierOptions, setSupplierOptions] = useState(null);
+  // Variáveis para guardar as opções vindas do banco
+  const [businessOptions, setBusinessOptions] = useState<any>({});
+  const [supplierOptions, setSupplierOptions] = useState<any>({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,36 +26,58 @@ export const Register: React.FC = () => {
     phone: '',
     password: '',
     role: 'business',
-    businessType: 'food_service',
-    supplierType: '', // NOVO CAMPO
-    supplierSubCategory: '', // NOVO CAMPO
+    businessType: '', 
+    businessSubCategory: '',
+    supplierType: '',
+    supplierSubCategory: '',
   });
 
-  // Efeito para buscar as categorias de fornecedor do Firestore
+  // --- CONEXÃO COM O BANCO ANTIGO ---
+  // Busca as categorias de negócio que você já criou no sistema antigo
   useEffect(() => {
-    const categoriesRef = collection(db, 'supplier_categories');
-    const q = query(categoriesRef, orderBy("order"));
+    const q = query(collection(db, 'business_categories'), orderBy("order"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const options = {};
+        const options: any = {};
         snapshot.docs.forEach(doc => {
             const data = doc.data();
-            options[doc.id] = { label: data.label, subCategories: data.subCategories || [] };
+            // Monta a estrutura igual ao seu App.jsx antigo
+            options[doc.id] = { 
+                label: data.label, 
+                subCategories: data.subCategories || [] 
+            };
         });
-        setSupplierOptions(options);
-        // Define o valor inicial para os selects de fornecedor
+        setBusinessOptions(options);
+
+        // Seleciona o primeiro item automaticamente para não bugar
         if (Object.keys(options).length > 0) {
-            const firstTypeKey = Object.keys(options)[0];
-            const firstSubCategoryKey = options[firstTypeKey]?.subCategories[0]?.key || '';
-            setFormData(prev => ({
-                ...prev,
-                supplierType: prev.supplierType || firstTypeKey,
-                supplierSubCategory: prev.supplierSubCategory || firstSubCategoryKey
+            const firstKey = Object.keys(options)[0];
+            const firstSub = options[firstKey].subCategories[0]?.key || '';
+            setFormData(prev => ({ 
+                ...prev, 
+                businessType: firstKey,
+                businessSubCategory: firstSub 
             }));
         }
     });
     return () => unsubscribe();
   }, []);
 
+  // Busca categorias de fornecedores (se houver)
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+        const q = query(collection(db, 'supplier_categories'), orderBy("order"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const options: any = {};
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                options[doc.id] = { label: data.label, subCategories: data.subCategories || [] };
+            });
+            setSupplierOptions(options);
+        });
+        return () => unsubscribe();
+    };
+    fetchSuppliers();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -65,11 +85,12 @@ export const Register: React.FC = () => {
 
     setFormData(prev => {
         const newState = { ...prev, [name]: finalValue };
-        // Se o tipo de fornecedor mudar, reseta a subcategoria
-        if (name === 'supplierType' && supplierOptions) {
-            const firstSubCategoryKey = supplierOptions[value]?.subCategories[0]?.key || '';
-            newState.supplierSubCategory = firstSubCategoryKey;
+        
+        // Se mudou a categoria principal, seleciona a primeira subcategoria dela automaticamente
+        if (name === 'businessType' && businessOptions[value]) {
+            newState.businessSubCategory = businessOptions[value].subCategories[0]?.key || '';
         }
+        
         return newState;
     });
   };
@@ -103,58 +124,122 @@ export const Register: React.FC = () => {
         <div className="text-center mb-8">
           <Utensils className="mx-auto text-blue-600" size={48} />
           <h1 className="text-3xl font-bold text-gray-800 mt-2">Crie sua Conta</h1>
-          <p className="text-gray-500">Faça parte do ecossistema FoodPDV</p>
+          <p className="text-gray-500">Junte-se ao ecossistema Nexus</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Etapa 1 */}
+          {/* Passo 1: Dados Pessoais */}
           <div className={step === 1 ? 'block' : 'hidden'}>
             <div className="space-y-4">
-              <h3 className="text-xl font-bold">1. Identificação</h3>
-              <FormField label="Seu Nome Completo"><input name="name" value={formData.name} onChange={handleChange} className="w-full p-3 border rounded-lg" required /></FormField>
-              <FormField label="Seu E-mail Principal"><input name="email" type="email" value={formData.email} onChange={handleChange} className="w-full p-3 border rounded-lg" required /></FormField>
-              <FormField label="Seu Telefone (WhatsApp)"><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input name="phone" type="tel" value={formData.phone} onChange={handleChange} className="w-full p-3 pl-10 border rounded-lg" placeholder="(XX) XXXXX-XXXX" required /></div></FormField>
-              <div className="text-right"><button type="button" onClick={() => setStep(2)} disabled={!formData.name || !formData.email || formData.phone.length < 14} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-400">Próximo</button></div>
+              <h3 className="text-xl font-bold">1. Seus Dados</h3>
+              <FormField label="Nome Completo">
+                  <input name="name" value={formData.name} onChange={handleChange} className="w-full p-3 border rounded-lg" required />
+              </FormField>
+              <FormField label="E-mail">
+                  <input name="email" type="email" value={formData.email} onChange={handleChange} className="w-full p-3 border rounded-lg" required />
+              </FormField>
+              <FormField label="WhatsApp">
+                  <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input name="phone" type="tel" value={formData.phone} onChange={handleChange} className="w-full p-3 pl-10 border rounded-lg" placeholder="(XX) XXXXX-XXXX" required />
+                  </div>
+              </FormField>
+              <div className="text-right">
+                  <button type="button" onClick={() => setStep(2)} disabled={!formData.name || !formData.email || formData.phone.length < 14} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-400 transition-colors">
+                      Continuar
+                  </button>
+              </div>
             </div>
           </div>
 
-          {/* Etapa 2 */}
+          {/* Passo 2: Tipo de Negócio (AQUI É A MÁGICA) */}
           <div className={step === 2 ? 'block' : 'hidden'}>
             <div className="space-y-4">
-                <h3 className="text-xl font-bold">2. Tipo de Conta</h3>
-                 <FormField label="Eu sou um:">
+                <h3 className="text-xl font-bold">2. Sobre seu Negócio</h3>
+                 
+                 <FormField label="Eu sou:">
                     <div className="grid grid-cols-3 gap-2 p-2 bg-gray-100 rounded-lg">
-                        {['business', 'supplier', 'customer'].map(roleValue => (
-                            <label key={roleValue} className="text-center cursor-pointer"><input type="radio" name="role" value={roleValue} checked={formData.role === roleValue} onChange={handleChange} className="sr-only" /><span className={`block p-3 rounded-md transition capitalize ${formData.role === roleValue ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}>{roleValue === 'business' ? 'Negócio' : (roleValue === 'supplier' ? 'Fornecedor' : 'Cliente')}</span></label>
+                        {[
+                            { val: 'business', label: 'Lojista' },
+                            { val: 'supplier', label: 'Fornecedor' },
+                            { val: 'customer', label: 'Cliente' }
+                        ].map(opt => (
+                            <label key={opt.val} className="text-center cursor-pointer">
+                                <input type="radio" name="role" value={opt.val} checked={formData.role === opt.val} onChange={handleChange} className="sr-only" />
+                                <span className={`block p-2 text-sm font-bold rounded-md transition ${formData.role === opt.val ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 hover:bg-gray-200'}`}>
+                                    {opt.label}
+                                </span>
+                            </label>
                         ))}
                     </div>
                 </FormField>
+
+                {/* Se for LOJISTA, mostra as opções vindas do 'business_categories' */}
                 {formData.role === 'business' && (
-                    <FormField label="Tipo de Negócio"><select name="businessType" value={formData.businessType} onChange={handleChange} className="w-full p-3 border rounded-lg"><option value="food_service">Food Service (Restaurante)</option><option value="retail">Varejo (Loja)</option><option value="atacado">Atacado</option></select></FormField>
-                )}
-                {/* CAMPOS DE FORNECEDOR ADICIONADOS AQUI */}
-                {formData.role === 'supplier' && supplierOptions && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField label="Tipo de Fornecedor"><select name="supplierType" value={formData.supplierType} onChange={handleChange} className="w-full p-3 border rounded-lg">{Object.keys(supplierOptions).map(key => (<option key={key} value={key}>{supplierOptions[key].label}</option>))}</select></FormField>
-                        <FormField label="Ramo de Atividade"><select name="supplierSubCategory" value={formData.supplierSubCategory} onChange={handleChange} className="w-full p-3 border rounded-lg">{formData.supplierType && supplierOptions[formData.supplierType]?.subCategories.map(subCat => (<option key={subCat.key} value={subCat.key}>{subCat.label}</option>))}</select></FormField>
+                    <div className="space-y-4">
+                        <FormField label="Ramo de Atividade">
+                            {Object.keys(businessOptions).length > 0 ? (
+                                <select name="businessType" value={formData.businessType} onChange={handleChange} className="w-full p-3 border rounded-lg bg-white">
+                                    {Object.keys(businessOptions).map(key => (
+                                        <option key={key} value={key}>
+                                            {businessOptions[key].label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className="text-red-500 text-sm">Nenhuma categoria encontrada no banco.</p>
+                            )}
+                        </FormField>
+
+                        {/* Mostra as subcategorias (ex: Pizzaria, Hamburgueria) */}
+                        <FormField label="Especialidade">
+                             <select name="businessSubCategory" value={formData.businessSubCategory} onChange={handleChange} className="w-full p-3 border rounded-lg bg-white">
+                                {formData.businessType && businessOptions[formData.businessType]?.subCategories.map((sub: any) => (
+                                    <option key={sub.key} value={sub.key}>
+                                        {sub.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </FormField>
                     </div>
                 )}
-                <div className="flex justify-between"><button type="button" onClick={() => setStep(1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Voltar</button><button type="button" onClick={() => setStep(3)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">Próximo</button></div>
+
+                <div className="flex justify-between pt-4">
+                    <button type="button" onClick={() => setStep(1)} className="text-gray-600 hover:text-gray-800 font-bold px-4">Voltar</button>
+                    <button type="button" onClick={() => setStep(3)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">Próximo</button>
+                </div>
             </div>
           </div>
 
-          {/* Etapa 3 */}
+          {/* Passo 3: Senha */}
           <div className={step === 3 ? 'block' : 'hidden'}>
             <div className="space-y-4">
-                <h3 className="text-xl font-bold">3. Crie sua Senha</h3>
-                <FormField label="Senha (mínimo 6 caracteres)"><input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full p-3 border rounded-lg" required minLength={6} /></FormField>
-                {error && <p className="text-red-500 text-sm text-center p-3 bg-red-50 rounded-lg">{error}</p>}
-                <div className="flex justify-between"><button type="button" onClick={() => setStep(2)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Voltar</button><button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-400">{loading ? 'Criando conta...' : 'Finalizar e Criar Conta'}</button></div>
+                <h3 className="text-xl font-bold">3. Segurança</h3>
+                <FormField label="Defina sua Senha">
+                    <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full p-3 border rounded-lg" required minLength={6} placeholder="Mínimo 6 caracteres" />
+                </FormField>
+                
+                {error && (
+                    <div className="text-red-600 text-sm text-center p-3 bg-red-50 rounded-lg border border-red-100 flex items-center justify-center gap-2">
+                        ⚠️ {error}
+                    </div>
+                )}
+
+                <div className="flex justify-between pt-4">
+                    <button type="button" onClick={() => setStep(2)} className="text-gray-600 hover:text-gray-800 font-bold px-4">Voltar</button>
+                    <button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2">
+                        {loading ? 'Criando...' : 'Finalizar Cadastro'}
+                    </button>
+                </div>
             </div>
           </div>
         </form>
 
-        <div className="text-center mt-6"><Link to="/login" className="text-sm text-blue-600 hover:underline">Já tem uma conta? Faça o login.</Link></div>
+        <div className="text-center mt-8 pt-6 border-t border-gray-100">
+            <Link to="/login" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                Já tem conta? Fazer login
+            </Link>
+        </div>
       </div>
     </div>
   );
