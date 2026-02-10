@@ -1,9 +1,9 @@
 //src/components/business/layout/BusinessLayout.tsx
 
-import React, { useState, useEffect, ReactNode ,  useMemo } from 'react';
-import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, ReactNode, useMemo } from 'react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
-  Menu, X, LogOut, ChevronDown,
+  Menu, LogOut,
   LayoutDashboard, // Ícone padrão caso falte
   Store,
   Crown,
@@ -24,51 +24,55 @@ import { db } from '../../../config/firebase';
 // Mapeamento de Rota: Conecta a "Chave da Feature" com o "Link do Navegador"
 // Isso separa a definição do botão (ícone/nome) do destino dele.
 const PATH_MAPPING: Record<string, string> = {
-  'dashboard': '/app',
-  'bi_dashboard': '/app/bi',
-  'vendas_pdv': '/app/pdv',
-  'vendas_mesas': '/app/tables',
-  'vendas_balcao': '/app/sales',
-  'vendas_delivery': '/app/delivery',
-  'caixa_atual': '/app/cashier',
-  'financeiro_contas_pagar': '/app/debts',
-  'marketing': '/app/marketing',
-  'cadastros_produtos': '/app/products',
-  'cadastros_clientes': '/app/customers',
-  'configuracoes': '/app/settings',
-  'marketplace_compras': '/app/purchases', // Exemplo Nexus
-  'extensoes': '/app/extensions'
+  'dashboard': '/painel/dashboard',
+  'bi_dashboard': '/painel/reports',
+  'vendas_pdv': '/painel/pdv',
+  'vendas_mesas': '/painel/tables',
+  'vendas_balcao': '/painel/sales',
+  'vendas_delivery': '/painel/delivery',
+  'caixa_atual': '/painel/cashier',
+  'financeiro_contas_pagar': '/painel/debts',
+  'marketing': '/painel/marketing',
+  'cadastros_produtos': '/painel/products',
+  'cadastros_clientes': '/painel/customers',
+  'configuracoes': '/painel/settings',
+  'marketplace_compras': '/painel/purchases', // Exemplo Nexus
+  'extensoes': '/painel/extensions'
 };
 
 // Componente para a nova barra de navegação inferior
 const MobileBottomNav: React.FC = () => {
-    const location = useLocation();
-    const navItems = [
-        { href: '/painel/dashboard', icon: Home, label: 'Início' },
-        { href: '/painel/delivery', icon: Truck, label: 'Delivery' },
-        { href: '/painel/tables', icon: Clipboard, label: 'Mesas' },
-        { href: '/painel/sales', icon: Wallet, label: 'Balcão' },
-    ];
+  const location = useLocation();
+  const navItems = [
+    { href: '/painel/dashboard', icon: Home, label: 'Início' },
+    { href: '/painel/delivery', icon: Truck, label: 'Delivery' },
+    { href: '/painel/tables', icon: Clipboard, label: 'Mesas' },
+    { href: '/painel/sales', icon: Wallet, label: 'Balcão' },
+  ];
 
-    return (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 flex justify-around">
-            {navItems.map(item => (
-                <Link
-                    key={item.label}
-                    to={item.href}
-                    className={`p-3 flex flex-col items-center w-full transition-colors ${
-                        location.pathname.startsWith(item.href) ? 'text-orange-600' : 'text-gray-500'
-                    }`}
-                >
-                    <item.icon size={24} />
-                    <span className="text-xs mt-1">{item.label}</span>
-                </Link>
-            ))}
-        </nav>
-    );
+  return (
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 flex justify-around">
+      {navItems.map(item => (
+        <Link
+          key={item.label}
+          to={item.href}
+          className={`p-3 flex flex-col items-center w-full transition-colors ${location.pathname.startsWith(item.href) ? 'text-orange-600' : 'text-gray-500'
+            }`}
+        >
+          <item.icon size={24} />
+          <span className="text-xs mt-1">{item.label}</span>
+        </Link>
+      ))}
+    </nav>
+  );
 };
+// 1. Definindo a interface para aceitar children
+interface BusinessLayoutProps {
+  children: ReactNode;
+}
 
-export const BusinessLayout: React.FC = () => {
+// 2. Aplicando a interface no componente
+export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const { userProfile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -314,8 +318,8 @@ export const BusinessLayout: React.FC = () => {
         </header>
 
         {/* Área de Scroll do Conteúdo */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          <Outlet />
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-6 pb-24 md:pb-6">
+          {children}
         </div>
       </main>
 
