@@ -8,10 +8,10 @@ export const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <h1 className="text-6xl font-bold mb-6">
-          Bem-vindo ao <span className="text-blue-400">FoodVerse</span>
+          Bem-vindo ao <span className="text-blue-400">Nexxus OS</span>
         </h1>
         <p className="text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
-          Sua jornada gastronômica está prestes a começar. Descubra sabores, histórias e oportunidades.
+          Sua jornada está prestes a começar. Descubra sabores, histórias e oportunidades.
         </p>
         
         <div className="flex flex-col md:flex-row gap-6 justify-center items-center max-w-4xl mx-auto">

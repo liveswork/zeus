@@ -99,7 +99,7 @@ export const RetailDashboard: React.FC = () => {
         color: "bg-blue-50 hover:bg-blue-100" 
     },
     { 
-        to: "/painel/products", // Vai para o ProductsManager de Retail
+        to: "/painel/registrations/products", // Vai para o ProductsManager de Retail
         icon: <Tag size={24} className="text-purple-600" />, 
         label: "Produtos & Grade", 
         desc: "Gerenciar estoque",

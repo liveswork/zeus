@@ -137,7 +137,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Localizar Produto" size="4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Localizar Produto" maxWidth="max-w-7xl">
             <div className="flex flex-col h-[70vh]" onKeyDown={handleKeyDown}>
                 <div className="relative mb-4">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />

@@ -6,7 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { FoodDashboard } from '../food/FoodDashboard'; 
 import { RetailDashboard } from '../retail/RetailDashboard';
 
-export const Dashboard: React.FC = () => {
+export const DashboardManager: React.FC = () => {
   const { userProfile } = useAuth();
   const businessType = userProfile?.businessProfile?.type || 'generic';
 

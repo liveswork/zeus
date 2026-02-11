@@ -248,7 +248,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
     return (
         <>
-            <Modal isOpen={isOpen} onClose={onClose} title={`Pedido Mesa - ${order.tableName}`} size="5xl">
+            <Modal isOpen={isOpen} onClose={onClose} title={`Pedido Mesa - ${order.tableName}`} maxWidth="max-w-7xl">
                 <div className="grid grid-cols-12 gap-6 h-[70vh]">
                     {/* Coluna Esquerda */}
                     <div className="col-span-5 flex flex-col">

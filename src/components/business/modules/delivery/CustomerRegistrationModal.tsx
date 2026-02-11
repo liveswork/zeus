@@ -218,7 +218,7 @@ export const CustomerRegistrationModal: React.FC<CustomerRegistrationModalProps>
       isOpen={isOpen} 
       onClose={onClose} 
       title={customerData.isNewCustomer ? "Criar Cliente Global" : "Cadastrar Endereços"} 
-      size="4xl"
+      maxWidth="max-w-7xl" // <--- MUDANÇA AQUI (Deixa bem largo)
     >
       <div className="bg-gray-50 h-[70vh]">
         <form onSubmit={handleSubmit} className="h-full flex flex-col">

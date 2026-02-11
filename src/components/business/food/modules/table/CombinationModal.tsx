@@ -48,7 +48,7 @@ export const CombinationModal: React.FC<CombinationModalProps> = ({ isOpen, onCl
     if (!isOpen) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Montar Produto Meio a Meio" size="3xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Montar Produto Meio a Meio" size="4xl">
             <div className="space-y-6">
                 <div className="p-4 bg-gray-100 rounded-lg">
                     <p className="font-semibold">1ª Metade: <span className="text-blue-600 font-bold">{firstHalf.name}</span></p>

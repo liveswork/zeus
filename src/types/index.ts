@@ -86,6 +86,16 @@ export interface Product {
   stockQuantity: number;
   imageUrl?: string;
   imagePath: string;
+  gallery?: string[];
+  promotionalPrice?: number;
+  promoStartDate?: string;
+  promoEndDate?: string;
+  weight?: number; // em kg
+  length?: number; // em cm
+  width?: number; // em cm
+  height?: number; // em cm
+  purchaseNote?: string; // Nota de compra
+  attributes?: Array<{ name: string; options: string }>; // Ex: Tecido: Algodão
   taxRate: number; // Em porcentagem, ex: 17 para 17%
   unit?: string; // Ex: kg, g, l, ml, un, pct
   weightInGrams?: number; 

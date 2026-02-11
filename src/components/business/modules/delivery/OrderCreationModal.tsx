@@ -280,7 +280,7 @@ export const OrderCreationModal: React.FC<OrderCreationModalProps> = ({
         isOpen={isOpen} 
         onClose={onClose} 
         title={isEditing ? `Editando Pedido #${initialOrderData?.orderNumber}` : "Lançamento de Pedido"} 
-        size="7xl"
+        maxWidth="max-w-7xl" // <--- MUDANÇA AQUI (Deixa bem largo)
       >
         <div className="flex h-[80vh] gap-6 font-sans">
 

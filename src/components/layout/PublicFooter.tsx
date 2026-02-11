@@ -10,7 +10,7 @@ export const PublicFooter: React.FC = () => {
           {/* Company Info */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Utensils /> FoodPDV
+              <Utensils /> Nexxus OS
             </h2>
             <p className="text-gray-400 text-sm">
               Sua plataforma completa para gestão e delivery, conectando negócios, fornecedores e clientes.
@@ -49,13 +49,13 @@ export const PublicFooter: React.FC = () => {
             <h3 className="font-bold uppercase tracking-wider mb-4">Contato</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li className="flex items-center gap-2">
-                <Mail size={16} /> contato@foodpdv.com
+                <Mail size={16} /> contato@nexxusos.com.br
               </li>
               <li className="flex items-center gap-2">
-                <Phone size={16} /> (85) 99999-9999
+                <Phone size={16} /> (85) 98925-6925
               </li>
               <li className="flex items-center gap-2">
-                <Instagram size={16} /> @foodpdv_oficial
+                <Instagram size={16} /> @nexxusos
               </li>
             </ul>
           </div>
@@ -65,7 +65,7 @@ export const PublicFooter: React.FC = () => {
       {/* Copyright */}
       <div className="bg-gray-900 py-4">
         <div className="container mx-auto px-8 flex justify-between items-center text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} FoodPDV. Todos os direitos reservados.</p>
+          <p>© {new Date().getFullYear()} Nexxus Os. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

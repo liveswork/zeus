@@ -12,7 +12,7 @@ export const PublicHeader: React.FC = () => {
     <header className="bg-white shadow-md p-4 sticky top-0 z-40">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="text-2xl font-bold text-blue-600 flex items-center gap-2">
-          <Utensils /> FoodPDV
+          <Utensils /> Nexxus OS
         </Link>
 
         {/* Desktop Navigation */}
@@ -21,7 +21,7 @@ export const PublicHeader: React.FC = () => {
             <MapPin size={16} className="text-red-500" />
             <div>
               <p className="text-xs text-gray-500">Entregar em</p>
-              <p className="font-bold">Av. Maj. Williams, 2198</p>
+              <p className="font-bold">Rua. Major Agostinho, 2198</p>
             </div>
           </div>
           

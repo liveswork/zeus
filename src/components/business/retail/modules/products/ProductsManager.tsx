@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-    PlusCircle, Edit, Trash2, Package, Search, DollarSign, 
-    Archive, AlertTriangle, Tag, Hash, Layers, Barcode 
+import {
+    PlusCircle, Edit, Trash2, Package, Search, DollarSign,
+    Archive, AlertTriangle, Tag, Hash, Layers, Barcode,
+    Printer
 } from 'lucide-react';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../../../config/firebase'; // Ajuste os ... conforme sua pasta
@@ -9,19 +10,25 @@ import { useBusiness } from '../../../../../contexts/BusinessContext';
 import { useUI } from '../../../../../contexts/UIContext';
 import { useLocalProducts } from '../../../../../hooks/useLocalProducts';
 // Importa o Modal "Gerente" que já sabe lidar com Retail
-import { ProductFormModal } from '../../../modules/ProductFormModal'; 
+import { ProductFormModal } from '../../../modules/ProductFormModal';
 import { formatCurrency } from '../../../../../utils/formatters';
 import { Product } from '../../../../../types';
 import { StatCard } from '../../../../../components/ui/StatCard';
 import { FormField } from '../../../../../components/ui/FormField';
 
+import { Modal } from '../../../../../../components/ui/Modal'; // Importe o Modal
+import { LabelDesigner } from '../labels/LabelDesigner'; // <--- Importe o Designer
+
 export const RetailProductsManager: React.FC = () => {
     const { products, categories, subcategories, onDeleteProductImage } = useBusiness();
     const { saveProductLocal } = useLocalProducts();
     const { showAlert, showConfirmation } = useUI();
-    
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined);
+
+    // --- ESTADO PARA ETIQUETAS ---
+    const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 
     // --- FILTROS RETAIL ---
     const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +44,7 @@ export const RetailProductsManager: React.FC = () => {
 
     // Lógica de Salvamento (A mesma que corrigimos antes)
     const handleSaveProduct = async (productData: any) => {
+        console.log("RetailProductsManager - Salvando:", productData); // DEBUG
         try {
             await saveProductLocal(productData);
             setIsModalOpen(false);
@@ -70,9 +78,9 @@ export const RetailProductsManager: React.FC = () => {
             const variantStock = p.variants?.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) || 0;
             return acc + (p.stockQuantity || 0) + variantStock;
         }, 0);
-        
+
         const lowStockProducts = products.filter(p => {
-            const totalStock = (p.stockQuantity || 0) + (p.variants?.reduce((s:number, v:any) => s + v.stock, 0) || 0);
+            const totalStock = (p.stockQuantity || 0) + (p.variants?.reduce((s: number, v: any) => s + v.stock, 0) || 0);
             return totalStock < 5; // Exemplo: Alerta se tiver menos de 5
         }).length;
 
@@ -83,16 +91,16 @@ export const RetailProductsManager: React.FC = () => {
     const filteredProducts = useMemo(() => {
         const search = searchTerm.toLowerCase();
         return products.filter(p => {
-            const matchSearch = p.name.toLowerCase().includes(search) || 
-                              p.sku?.toLowerCase().includes(search);
+            const matchSearch = p.name.toLowerCase().includes(search) ||
+                p.sku?.toLowerCase().includes(search);
             const matchCat = selectedCategory === 'all' || p.categoryId === selectedCategory;
             const matchSub = selectedSubcategory === 'all' || p.subcategoryId === selectedSubcategory;
-            
+
             // Lógica de estoque para Retail
-            const totalStock = (p.stockQuantity || 0) + (p.variants?.reduce((s:number, v:any) => s + v.stock, 0) || 0);
-            const matchStock = stockStatus === 'all' || 
-                             (stockStatus === 'low' && totalStock < 5) ||
-                             (stockStatus === 'ok' && totalStock >= 5);
+            const totalStock = (p.stockQuantity || 0) + (p.variants?.reduce((s: number, v: any) => s + v.stock, 0) || 0);
+            const matchStock = stockStatus === 'all' ||
+                (stockStatus === 'low' && totalStock < 5) ||
+                (stockStatus === 'ok' && totalStock >= 5);
 
             return matchSearch && matchCat && matchSub && matchStock;
         });
@@ -124,8 +132,8 @@ export const RetailProductsManager: React.FC = () => {
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-2 relative">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-                    <input 
-                        placeholder="Buscar por nome ou SKU..." 
+                    <input
+                        placeholder="Buscar por nome ou SKU..."
                         className="w-full pl-10 p-2 border rounded-lg"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -146,7 +154,7 @@ export const RetailProductsManager: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map(product => {
                     const hasVariants = product.variants && product.variants.length > 0;
-                    const totalStock = (product.stockQuantity || 0) + (product.variants?.reduce((s:number, v:any) => s + (v.stock || 0), 0) || 0);
+                    const totalStock = (product.stockQuantity || 0) + (product.variants?.reduce((s: number, v: any) => s + (v.stock || 0), 0) || 0);
 
                     return (
                         <div key={product.id} className="bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-shadow group relative">
@@ -161,7 +169,7 @@ export const RetailProductsManager: React.FC = () => {
                                 )}
                                 {/* Badge de Estoque */}
                                 <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-bold shadow-sm flex items-center gap-1">
-                                    <Layers size={12} className="text-blue-600"/>
+                                    <Layers size={12} className="text-blue-600" />
                                     {totalStock} un
                                 </div>
                             </div>
@@ -170,7 +178,7 @@ export const RetailProductsManager: React.FC = () => {
                                 <h3 className="font-bold text-gray-800 mb-1 truncate">{product.name}</h3>
                                 <div className="text-sm text-gray-500 mb-3 flex items-center gap-2">
                                     <Tag size={12} /> {product.category || 'Geral'}
-                                    {product.sku && <span className="text-xs bg-gray-100 px-1 rounded flex items-center gap-1"><Barcode size={10}/> {product.sku}</span>}
+                                    {product.sku && <span className="text-xs bg-gray-100 px-1 rounded flex items-center gap-1"><Barcode size={10} /> {product.sku}</span>}
                                 </div>
 
                                 {/* Resumo da Grade (Se tiver) */}
@@ -186,6 +194,14 @@ export const RetailProductsManager: React.FC = () => {
                                         <p className="text-lg font-bold text-green-600">{formatCurrency(product.salePrice)}</p>
                                     </div>
                                     <div className="flex gap-2">
+                                        {/* BOTÃO DE ETIQUETA - VISIBILIDADE REFORÇADA */}
+                                        <button
+                                            onClick={() => setLabelProduct(product)}
+                                            className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-full transition-colors border border-purple-200"
+                                            title="Imprimir Etiquetas"
+                                        >
+                                            <Printer size={18} />
+                                        </button>
                                         <button onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"><Edit size={18} /></button>
                                         <button onClick={() => handleDelete(product)} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={18} /></button>
                                     </div>
@@ -198,12 +214,26 @@ export const RetailProductsManager: React.FC = () => {
 
             {/* O MODAL GERENTE (Ainda usamos o mesmo modal, pois ele sabe chamar o RetailForm) */}
             {isModalOpen && (
-                <ProductFormModal 
+                <ProductFormModal
                     isOpen={isModalOpen}
                     onClose={() => { setIsModalOpen(false); setSelectedProduct(undefined); }}
                     product={selectedProduct}
                     onSave={handleSaveProduct}
                 />
+            )}
+            {/* MODAL DE ETIQUETAS (LABEL DESIGNER) - NOVO */}
+            {labelProduct && (
+                <Modal
+                    isOpen={!!labelProduct}
+                    onClose={() => setLabelProduct(null)}
+                    title={`Etiquetas: ${labelProduct.name}`}
+                    maxWidth="max-w-[95vw]" // Modal Gigante
+                >
+                    <LabelDesigner
+                        product={labelProduct}
+                        onClose={() => setLabelProduct(null)}
+                    />
+                </Modal>
             )}
         </div>
     );

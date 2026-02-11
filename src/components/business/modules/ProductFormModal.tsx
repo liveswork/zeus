@@ -1,10 +1,11 @@
 import React from 'react';
 import { Modal } from '../../ui/Modal';
-import { useAuth } from '../../../contexts/AuthContext'; // Para saber o tipo do negócio
+import { useAuth } from '../../../contexts/AuthContext'; 
 
 // Importe seus formulários especializados
 import { RetailProductForm } from '../retail/modules/products/forms/RetailProductForm'; // O que criamos acima
 import { FoodProductForm } from '../food/modules/products/forms/FoodProductForm'; // O seu formulário antigo renomeado
+
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -18,14 +19,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 }) => {
   const { userProfile } = useAuth();
   
-  // LÓGICA DE DECISÃO (O Cérebro)
-  // Verifica a categoria principal ou subcategoria
   const businessType = userProfile?.businessProfile?.type || 'generic';
   
-  // Determina qual formulário renderizar
+  console.log("ProductFormModal - BusinessType:", businessType); // DEBUG
+  console.log("ProductFormModal - onSave exists:", !!onSave);   // DEBUG
+
   const renderForm = () => {
-    // Se for Varejo (Roupas, Sapatos, Ótica) -> Usa o RetailForm
-    if (['retail', 'fashion', 'otica', 'construction'].includes(businessType)) {
+    // Lista de tipos de varejo
+    const retailTypes = ['retail', 'fashion', 'otica', 'construction', 'varejo', 'loja_roupas', 'vestuario'];
+
+    if (retailTypes.includes(businessType)) {
         return (
             <RetailProductForm 
                 initialData={product} 
@@ -36,8 +39,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         );
     }
 
-    // Se for Alimentação (Restaurante, Pizzaria) -> Usa o FoodForm (seu antigo)
-    if (['food_service', 'pizzaria', 'restaurant'].includes(businessType)) {
+    // Se for Alimentação
+    if (['food_service', 'pizzaria', 'restaurant', 'hamburgueria'].includes(businessType)) {
         return (
             <FoodProductForm 
                 initialData={product} 
@@ -48,10 +51,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         );
     }
 
-    // Padrão (Fallback)
+    // Fallback
     return (
         <div className="p-4 text-center">
-            <p>Formulário genérico em construção...</p>
+            <p>Tipo de negócio não suportado: {businessType}</p>
         </div>
     );
   };
@@ -60,8 +63,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={product ? `Editar Produto (${businessType})` : `Novo Produto (${businessType})`}
-      maxWidth="max-w-4xl" // Mais largo para caber a grade
+      title={product ? `Editar Produto` : `Novo Produto`}
+      maxWidth="max-w-6xl" // Ajustado para acomodar o form largo
     >
       {renderForm()}
     </Modal>

@@ -6,7 +6,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6x1' ;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
   zIndex?: number;
   maxWidth?: string;
 }
@@ -43,7 +43,7 @@ export const Modal: React.FC<ModalProps> = ({
     '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
-    '6xl': 'max-w-6xl',
+    
   };
 
 return (
