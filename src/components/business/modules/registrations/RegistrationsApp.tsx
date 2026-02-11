@@ -1,7 +1,7 @@
 // src/components/business/modules/registrations/RegistrationsApp.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ProductsManager } from '../ProductsManager';
+import { FoodProductsManager } from '../../food/modules/products/ProductsManager';
 import { SuppliesManager } from '../SuppliesManager';
 import { TablesManager } from '../../food/modules/table/TablesManager';
 import { CategoriesManager } from './CategoriesManager';
@@ -16,7 +16,7 @@ export const RegistrationsApp: React.FC = () => {
   return (
     <Routes>
       <Route index element={<Navigate to="products" replace />} />
-      <Route path="products" element={<ProductsManager />} />
+      <Route path="products" element={<FoodProductsManager />} />
       <Route path="supplies" element={<SuppliesManager />} />
       <Route path="categories" element={<CategoriesManager />} />
       {/* Rota para complementos no local correto */}

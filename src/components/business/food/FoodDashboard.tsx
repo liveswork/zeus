@@ -266,7 +266,7 @@ class AnomalyDetector {
   }
 }
 
-export const Dashboard: React.FC = () => {
+export const FoodDashboard: React.FC = () => {
   const { userProfile } = useAuth();
   const { sales, tables, orders, products } = useBusiness();
   const [showRecipeAlert, setShowRecipeAlert] = useState(true);

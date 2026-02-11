@@ -101,7 +101,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto bg-[#f8fafc] w-full ml-60"> {/* ml-60 compensa o fixed sidebar se necessário */}
+      <main className="flex-1 p-8 overflow-y-auto bg-[#f8fafc] w-full "> {/* ml-60 compensa o fixed sidebar se necessário */}
         {children}
       </main>
     </div>

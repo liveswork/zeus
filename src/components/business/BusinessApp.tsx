@@ -6,7 +6,7 @@ import { useBusiness, BusinessProvider } from '../../contexts/BusinessContext';
 import { BusinessLayout } from './layout/BusinessLayout';
 
 // Importe todos os módulos do Business
-import { Dashboard } from './modules/Dashboard';
+import { FoodDashboard } from './food/FoodDashboard';
 import { SalesManager } from './food/modules/balcao/SalesManager';
 import { CashierManager } from './modules/CashierManager';
 import { TableManager } from './food/modules/table/TableManager';
@@ -52,7 +52,7 @@ export const BusinessApp: React.FC = () => {
       <BusinessLayout>
         <Routes>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="dashboard" element={<FoodDashboard />} />
           <Route path="sales" element={<SalesManager />} />
           <Route path="cashier" element={<CashierManager />} />
           <Route path="tables" element={<TableManager />} />

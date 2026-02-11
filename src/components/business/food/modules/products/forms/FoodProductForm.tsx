@@ -160,7 +160,7 @@ const FiscalTab = ({ formData, onFormChange }: any) => (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <FormField 
                     label="NCM" 
-                    description="Nomenclatura Comum do Mercosul"
+                    description="Nomenclatura Comum do Mercosul" 
                 >
                     <input 
                         name="ncm" 
@@ -173,7 +173,7 @@ const FiscalTab = ({ formData, onFormChange }: any) => (
                 
                 <FormField 
                     label="CEST" 
-                    description="Código Especificador da Substituição Tributária"
+                    description="Código Especificador da Substituição Tributária" 
                 >
                     <input 
                         name="cest" 
@@ -186,7 +186,7 @@ const FiscalTab = ({ formData, onFormChange }: any) => (
                 
                 <FormField 
                     label="GTIN/EAN" 
-                    description="Código de barras do produto"
+                    description="Código de barras do produto" 
                 >
                     <input 
                         name="gtin" 
@@ -401,7 +401,7 @@ const AddonsTab = ({ selectedGroupIds, onToggleGroup }: {
         });
     };
 
-    const availableGroups = addonGroups.filter(group => group.isActive !== false);
+    const availableGroups = addonGroups.filter(group => group.isActive !== false); 
     const selectedGroups = availableGroups.filter(group => selectedGroupIds.includes(group.id));
 
     if (availableGroups.length === 0) {
@@ -526,15 +526,16 @@ const AddonsTab = ({ selectedGroupIds, onToggleGroup }: {
     );
 };
 
-interface ProductFormModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    initialData?: Product | null;
+export interface FoodProductFormProps {
+    initialData?: any;
+    onSave: (data: any) => Promise<void>;
+    onCancel: () => void;
+    loading: boolean;
 }
 
-export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClose, initialData }) => {
-    const { supplies, userProfile, onDeleteProductImage, businessId, addonGroups, categories, subcategories, sales } = useBusiness();
-    const { saveProductLocal } = useLocalProducts();
+export const FoodProductForm: React.FC<FoodProductFormProps> = ({ isOpen, onClose, initialData }) => { 
+    const { supplies, userProfile, onDeleteProductImage, businessId, addonGroups, categories, subcategories, sales } = useBusiness(); 
+    const { saveProductLocal } = useLocalProducts(); 
     const { showAlert, showConfirmation } = useUI();
     const storage = getStorage();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -547,7 +548,7 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
         costPrice: 0, 
         stockQuantity: 0, 
         category: '',
-        categoryId: '',
+        categoryId: '', 
         subcategoryId: '',
         productStructure: userProfile?.businessProfile?.type === 'food_service' ? 'producao' : 'simples',
         showInCatalog: true, 
@@ -703,7 +704,7 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
         }
         
         // Validação de categoria
-        if (!formData.categoryId) {
+        if (!formData.categoryId) { 
             showAlert("Por favor, selecione uma categoria.", "error");
             setActiveTab('dados');
             return;
@@ -718,7 +719,7 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
         let productToSave: Product = {
             ...formData,
             id: finalProductId,
-            updatedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(), 
             createdAt: initialData?.createdAt || new Date().toISOString()
         };
 
@@ -845,7 +846,7 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
         : 0;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={initialData ? 'Editar Produto' : 'Criar Novo Produto'} size="6xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={initialData ? 'Editar Produto' : 'Criar Novo Produto'} size="6xl"> 
             <form onSubmit={handleSubmit} className="flex flex-col h-full">
                 {/* Abas de Navegação */}
                 <div className="border-b border-gray-200">
@@ -990,7 +991,7 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
                                     
                                     <FormField 
                                         label="Preço de Custo (R$)"
-                                        description={formData.productStructure === 'producao' ? 'Calculado pela Ficha Técnica' : 'Custo de aquisição'}
+                                        description={formData.productStructure === 'producao' ? 'Calculado pela Ficha Técnica' : 'Custo de aquisição'}   
                                     >
                                         <input 
                                             name="costPrice" 
@@ -1036,8 +1037,8 @@ export const FoodProductForm: React.FC<ProductFormModalProps> = ({ isOpen, onClo
                                                 className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
                                                 disabled={availableSubcategories.length === 0}
                                             >
-                                                <option value="">
-                                                    {availableSubcategories.length === 0 ? (formData.categoryId ? 'Nenhuma subcategoria' : 'Selecione uma categoria') : 'Opcional / Nenhuma'}
+                                                <option value="">  
+                                                    {availableSubcategories.length === 0 ? (formData.categoryId ? 'Nenhuma subcategoria' : 'Selecione uma categoria') : 'Opcional / Nenhuma'}  
                                                 </option>
                                                 {availableSubcategories.map((sub: Subcategory) => (
                                                     <option key={sub.id} value={sub.id}>
