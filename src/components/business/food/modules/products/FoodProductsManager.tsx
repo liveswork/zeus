@@ -153,7 +153,7 @@ export const FoodProductsManager: React.FC = () => {
                     className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center hover:bg-green-700 transition"
                 >
                     <PlusCircle size={20} className="mr-2" />
-                    Novo Produto
+                    Novo Produtosss
                 </button>
             </div>
 

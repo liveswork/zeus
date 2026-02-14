@@ -75,6 +75,7 @@ export const BusinessProvider: React.FC<BusinessProviderProps> = ({ children }) 
 
     const unsubscribes: Array<() => void> = [];
 
+    // Listener para Produtos
     const productsQuery = query(
       collection(db, 'products'),
       where("businessId", "==", businessId),
@@ -98,6 +99,7 @@ export const BusinessProvider: React.FC<BusinessProviderProps> = ({ children }) 
       })
     );
 
+    // Listener para Categorias
     const categoriesQuery = query(
       collection(db, 'categories'),
       where("businessId", "==", businessId),
@@ -109,6 +111,7 @@ export const BusinessProvider: React.FC<BusinessProviderProps> = ({ children }) 
       })
     );
 
+    // Listener para Sub-categorias
     const subcategoriesQuery = query(
       collection(db, 'subcategories'),
       where("businessId", "==", businessId),

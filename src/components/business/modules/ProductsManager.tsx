@@ -2,8 +2,8 @@ import React from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 
 // Importa os gerenciadores específicos que você separou
-import { FoodProductsManager } from '../food/modules/products/ProductsManager'; // O seu antigo renomeado
-import { RetailProductsManager } from '../retail/modules/products/ProductsManager'; // O novo que criei acima
+import { FoodProductsManager } from '../food/modules/products/FoodProductsManager'; // O seu antigo renomeado
+import { RetailProductsManager } from '../retail/modules/products/RetailProductsManager'; // O novo que criei acima
 
 export const ProductsManager: React.FC = () => {
     const { userProfile } = useAuth();

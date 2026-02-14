@@ -287,6 +287,55 @@ import { useNetwork } from './NetworkContext';
 
 import { getDatabaseSafely } from '../database/databaseGuardian';
 
+
+
+// ------------------------------
+// RxDB normalization helpers
+// ------------------------------
+function tsToIso(v: any) {
+  if (!v) return new Date().toISOString();
+
+  // already ISO string
+  if (typeof v === 'string') return v;
+
+  // Firestore Timestamp (common shapes)
+  if (typeof v === 'object') {
+    if (typeof v.toDate === 'function') {
+      return v.toDate().toISOString();
+    }
+    if (typeof v.seconds === 'number') {
+      return new Date(v.seconds * 1000).toISOString();
+    }
+  }
+
+  // fallback
+  try {
+    return new Date(v).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function normalizeUserForLocal(raw: any) {
+  return {
+    id: raw.id ?? raw.uid,
+    name: raw.name ?? raw.displayName ?? raw.companyName ?? '',
+    email: raw.email ?? '',
+    pinHash: raw.pinHash ?? '',
+
+    role: raw.role ?? 'customer',
+    permissions: raw.permissions ?? [],
+
+    // seu schema local tem "active" boolean
+    active: raw.active ?? (raw.status === 'active'),
+
+    businessId: raw.businessId ?? raw.uid ?? raw.id,
+
+    createdAt: tsToIso(raw.createdAt),
+    updatedAt: tsToIso(raw.updatedAt ?? new Date().toISOString()),
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -417,13 +466,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserProfile(profile);
             subscriptionGuard.setProfile(profile);
 
-            // Backup offline silencioso
+            
+            // Backup offline silencioso (normalizado para o schema local do RxDB)
             const localDb = await getDatabaseSafely();
-            await localDb.users.upsert({
-              ...profile,
-              id: firebaseUser.uid,
-              updatedAt: new Date().toISOString()
+            const localUser = normalizeUserForLocal({
+              ...snap.data(),
+              uid: firebaseUser.uid,
+              id: firebaseUser.uid
             });
+            await localDb.users.upsert(localUser);
           }
         } catch (err) {
           console.warn('[Auth] Failed to load online profile', err);
@@ -457,7 +508,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userData = users[0].toJSON();
 
-      if (userData.pin !== pin) return false;
+      if (userData.pinHash !== pin) return false;
 
       const offlineUser = {
         uid: `offline-${userData.id}`,

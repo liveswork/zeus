@@ -31,7 +31,7 @@ import { NexusPurchaseManager } from './modules/NexusPurchaseManager';
 import { PrintManager } from '../print/PrintManager';
 import { AIMonitoringPanel } from '../ai/AIMonitoringPanel';
 
-
+import { FinancialPage } from './modules/financial/FinancialPage';
 
 
 export const BusinessApp: React.FC = () => {
@@ -66,6 +66,8 @@ export const BusinessApp: React.FC = () => {
           <Route path="financeiro/contas-a-pagar" element={<DebtsManager />} />
           <Route path="extensoes" element={<ExtensionStore />} />
           <Route path="settings" element={<SettingsManager />} />
+          <Route path="financial" element={<FinancialPage />} />
+          
         
 
           <Route path="foodverse/essencia" element={<EssenceAdminPanel />} />

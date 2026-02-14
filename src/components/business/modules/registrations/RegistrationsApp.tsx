@@ -1,7 +1,7 @@
 // src/components/business/modules/registrations/RegistrationsApp.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { FoodProductsManager } from '../../food/modules/products/ProductsManager';
+import { FoodProductsManager } from '../../food/modules/products/FoodProductsManager';
 import { SuppliesManager } from '../SuppliesManager';
 import { TablesManager } from '../../food/modules/table/TablesManager';
 import { CategoriesManager } from './CategoriesManager';

@@ -3,7 +3,16 @@ export type TelemetryEvent =
   | 'NETWORK_ONLINE'
   | 'NETWORK_RETRY'
   | 'NETWORK_RECOVERED'
-  | 'SYNC_ERROR';
+  | 'SYNC_ERROR'
+  | 'SYNC_ENGINE_START'
+  | 'SYNC_ENGINE_STOP'
+  | 'SYNC_LIVE_PULL_START'
+  | 'SYNC_LIVE_PULL_STOP'
+  | 'SYNC_STREAM_ERROR'
+  | 'SYNC_PULL_BATCH'
+  | 'SYNC_CONFLICT'
+  | 'SYNC_PUSH_ERROR'
+  ;
 
 interface TelemetryRecord {
   event: TelemetryEvent;

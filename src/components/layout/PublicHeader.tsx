@@ -12,7 +12,7 @@ export const PublicHeader: React.FC = () => {
     <header className="bg-white shadow-md p-4 sticky top-0 z-40">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="text-2xl font-bold text-blue-600 flex items-center gap-2">
-          <Utensils /> Nexxus OS
+           Nexxus OS
         </Link>
 
         {/* Desktop Navigation */}

@@ -24,7 +24,7 @@ import { db } from '../../../config/firebase';
 // Mapeamento de Rota: Conecta a "Chave da Feature" com o "Link do Navegador"
 // Isso separa a definição do botão (ícone/nome) do destino dele.
 const PATH_MAPPING: Record<string, string> = {
-'dashboard': '/painel/dashboard',
+  'dashboard': '/painel/dashboard',
   'bi_dashboard': '/painel/reports',
   'vendas_pdv': '/painel/pdv',
   'vendas_mesas': '/painel/tables',
@@ -34,6 +34,7 @@ const PATH_MAPPING: Record<string, string> = {
   'financeiro_contas_pagar': '/painel/financeiro/contas-a-pagar',
   'marketing': '/painel/marketing/campanhas',
   'cadastros_produtos': '/painel/registrations/products',
+  'cadastros_categorias': '/painel/registrations/categories',
   'cadastros_clientes': '/painel/registrations/customers',
   'cadastros_fornecedores': '/painel/registrations/suppliers',
   'cadastros_funcionarios': '/painel/registrations/employees',
@@ -43,7 +44,31 @@ const PATH_MAPPING: Record<string, string> = {
   'marketplace_compras': '/painel/marketplace',
   'extensoes': '/painel/extensoes',
   'whatsapp_chat': '/painel/whatsapp_chat',
-  'composer': '/painel/composer'
+  'composer': '/painel/composer',
+  'financeiro': '/painel/financeiro',
+  // --- Marketing / Foodverse ---
+'marketing_journeys': '/painel/foodverse/jornadas',
+'marketing_events': '/painel/foodverse/eventos',
+'cadastros_essencia': '/painel/foodverse/essencia',
+
+// --- Relatórios ---
+'relatorios': '/painel/reports',
+
+// --- Extensões ---
+'loja_extensoes': '/painel/extensoes',
+
+// --- Compras ---
+'compras_ver': '/painel/compras',                 // ou '/painel/compras' (ajuste se tiver index)
+'compras_orcamentos': '/painel/compras/orcamentos', // só se essa rota existir
+
+// --- Cadastros ---
+'cadastros_insumos': '/painel/registrations/supplies',
+'cadastros_mesas': '/painel/registrations/tables',
+'cadastros_taxas_delivery': '/painel/registrations/delivery-fees',
+
+// --- Utilitários / Outros ---
+'recuperador_de_vendas': '/painel/sales/recover' // só se existir; senão crie a rota ou mude o path
+
 };
 
 // Componente para a nova barra de navegação inferior
@@ -135,6 +160,12 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
         // 3. Monta o menu visualmente
         const grouped: any = {};
         Object.keys(MENU_GROUPS).forEach(g => grouped[g] = []);
+
+        console.log('[MENU] allowedFeatures =', allowedFeatures);
+        const missingInMap = allowedFeatures.filter(k => !FEATURE_MAP[k]);
+        const missingPath = allowedFeatures.filter(k => !PATH_MAPPING[k]);
+
+        console.table({ missingInMap, missingPath });
 
         allowedFeatures.forEach(key => {
           const feature = FEATURE_MAP[key];

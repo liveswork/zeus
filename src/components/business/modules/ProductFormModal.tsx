@@ -1,72 +1,64 @@
 import React from 'react';
 import { Modal } from '../../ui/Modal';
-import { useAuth } from '../../../contexts/AuthContext'; 
-
-// Importe seus formulários especializados
-import { RetailProductForm } from '../retail/modules/products/forms/RetailProductForm'; // O que criamos acima
-import { FoodProductForm } from '../food/modules/products/forms/FoodProductForm'; // O seu formulário antigo renomeado
-
+import { useAuth } from '../../../contexts/AuthContext';
+import { RetailProductForm } from '../retail/modules/products/forms/RetailProductForm';
+import { FoodProductForm } from '../food/modules/products/forms/FoodProductForm';
 
 interface ProductFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  product?: any;
-  onSave: (data: any) => Promise<void>;
+    isOpen: boolean;
+    onClose: () => void;
+    product?: any;
+    onSave?: (data: any) => Promise<void>; // Opcional agora
 }
 
-export const ProductFormModal: React.FC<ProductFormModalProps> = ({ 
-  isOpen, onClose, product, onSave 
+export const ProductFormModal: React.FC<ProductFormModalProps> = ({
+    isOpen, onClose, product, onSave
 }) => {
-  const { userProfile } = useAuth();
-  
-  const businessType = userProfile?.businessProfile?.type || 'generic';
-  
-  console.log("ProductFormModal - BusinessType:", businessType); // DEBUG
-  console.log("ProductFormModal - onSave exists:", !!onSave);   // DEBUG
+    const { userProfile } = useAuth();
+    const businessType = userProfile?.businessProfile?.type || 'retail';
 
-  const renderForm = () => {
-    // Lista de tipos de varejo
-    const retailTypes = ['retail', 'fashion', 'otica', 'construction', 'varejo', 'loja_roupas', 'vestuario'];
+    const renderForm = () => {
+        // Key única para forçar reset
+        const formKey = `${product ? product.id : 'novo'}`;
 
-    if (retailTypes.includes(businessType)) {
-        return (
-            <RetailProductForm 
-                initialData={product} 
-                onSave={onSave} 
-                onCancel={onClose} 
-                loading={false} 
-            />
-        );
-    }
+        const retailTypes = ['retail', 'fashion', 'otica', 'construction', 'varejo', 'loja_roupas', 'vestuario', 'cosmeticos'];
+        const foodTypes = ['food_service', 'pizzaria', 'restaurant', 'hamburgueria', 'sushi'];
 
-    // Se for Alimentação
-    if (['food_service', 'pizzaria', 'restaurant', 'hamburgueria'].includes(businessType)) {
-        return (
-            <FoodProductForm 
-                initialData={product} 
-                onSave={onSave} 
-                onCancel={onClose} 
-                loading={false} 
-            />
-        );
-    }
+        if (retailTypes.includes(businessType) || !foodTypes.includes(businessType)) {
+            return (
+                <RetailProductForm
+                    key={formKey}
+                    initialData={product}
+                    onSave={onSave || (async () => { })}
+                    onCancel={onClose}
+                    loading={false}
+                />
+            );
+        }
 
-    // Fallback
+        if (foodTypes.includes(businessType)) {
+            return (
+                <FoodProductForm
+                    key={formKey}
+                    initialData={product}
+                    onSave={onSave || (async () => { })} // FoodForm ainda usa modelo antigo, passamos func vazia se não tiver
+                    onCancel={onClose}
+                    loading={false}
+                />
+            );
+        }
+
+        return <div>Tipo desconhecido</div>;
+    };
+
     return (
-        <div className="p-4 text-center">
-            <p>Tipo de negócio não suportado: {businessType}</p>
-        </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={product ? `Editar Produto` : `Novo Produto`}
+            maxWidth="max-w-6xl"
+        >
+            {renderForm()}
+        </Modal>
     );
-  };
-
-  return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
-      title={product ? `Editar Produto` : `Novo Produto`}
-      maxWidth="max-w-6xl" // Ajustado para acomodar o form largo
-    >
-      {renderForm()}
-    </Modal>
-  );
 };

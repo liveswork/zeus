@@ -11,6 +11,7 @@ import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 
 // Adiciona tipos necessários
 import type { RxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import { auth } from '../config/firebase';
 
 // Adiciona plugins essenciais
 addRxPlugin(RxDBUpdatePlugin);
@@ -90,8 +91,8 @@ const _createDatabase = async () => {
     // Tenta iniciar a sincronização (pode falhar se não tiver firestoreSync.ts, mas não trava o app)
     try {
         syncFirestore(db.products, 'products');
-        syncFirestore(db.customers, 'customers');
-       // syncFirestore(db.users, 'users');
+        syncFirestore(db.customers, `users/${auth.currentUser?.uid}/localCustomers`);
+        syncFirestore(db.users, 'users');
     } catch (e) {
         console.warn("Sync não iniciado (verifique se firestoreSync.ts existe)", e);
     }

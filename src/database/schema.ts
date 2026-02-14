@@ -1,30 +1,68 @@
 export const productSchema = {
     title: 'product',
-    version: 0,
+    version: 0, // <--- SUBIMOS A VERSÃO PARA FORÇAR A ATUALIZAÇÃO
     primaryKey: 'id',
     type: 'object',
     properties: {
         id: { type: 'string', maxLength: 100 },
         name: { type: 'string' },
+        
+        // Descrições
+        shortDescription: { type: 'string' }, // <--- Faltava este
+        description: { type: 'string' },      // <--- Faltava este
+
+        // Preços e Promoção
         salePrice: { type: 'number' },
         costPrice: { type: 'number' },
+        promotionalPrice: { type: 'number' }, // <--- Faltava este
+        promoStartDate: { type: 'string' },   // <--- Faltava este
+        promoEndDate: { type: 'string' },     // <--- Faltava este
+
+        // Estoque e Identificação
         stockQuantity: { type: 'number' },
-
-        // Campos que adicionamos antes
-        category: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-
-        categoryId: { type: 'string' },
-        subcategoryId: { type: 'string' },
-        productStructure: { type: 'string' },
-        imageUrl: { type: 'string' },
-        imagePath: { type: 'string' },
         sku: { type: 'string' },
         barcode: { type: 'string' },
+        gtin: { type: 'string' }, // EAN
+        
+        // Imagens
+        imageUrl: { type: 'string' },
+        imagePath: { type: 'string' },
+        gallery: {                        // <--- Faltava a galeria
+            type: 'array',
+            items: { type: 'string' }
+        },
+
+        // Dimensões e Entrega (Faltavam todos estes)
+        weight: { type: 'number' },
+        length: { type: 'number' },
+        width: { type: 'number' },
+        height: { type: 'number' },
+
+        // Categorização
+        category: { type: 'string' },
+        categoryId: { type: 'string' },
+        subcategoryId: { type: 'string' },
+        
+        // Configurações
         active: { type: 'boolean' },
         showInCatalog: { type: 'boolean' },
         allowCombination: { type: 'boolean' },
+        productStructure: { type: 'string' },
 
+        // Avançado
+        purchaseNote: { type: 'string' }, // <--- Faltava este
+        attributes: {                     // <--- Faltava este
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string' },
+                    options: { type: 'string' }
+                }
+            }
+        },
+
+        // Receita (Food Service)
         recipe: {
             type: 'array',
             items: {
@@ -35,12 +73,11 @@ export const productSchema = {
                     unit: { type: 'string' },
                     supplyName: { type: 'string' },
                     additionalProperties: true
-
                 }
             }
         },
 
-        // 🟢 NOVO: Suporte para Variantes (Tamanhos, Cores, etc.)
+        // Variantes (Grade)
         variants: {
             type: 'array',
             items: {
@@ -53,8 +90,9 @@ export const productSchema = {
                     stock: { type: 'number' },
                     barcode: { type: 'string' },
                     salePrice: { type: 'number' },
+                    sku: { type: 'string' }, // Adicionado SKU na variante também
+                    name: { type: 'string' },
                     additionalProperties: true
-
                 }
             }
         },
@@ -64,13 +102,13 @@ export const productSchema = {
             items: { type: 'string' }
         },
 
-        // Campos extras de negócio (para evitar erros futuros se eles vierem null/undefined)
+        // Fiscal
         businessId: { type: 'string' },
         ncm: { type: 'string' },
         cest: { type: 'string' },
-        gtin: { type: 'string' },
         origin: { type: 'string' },
 
+        createdAt: { type: 'string', format: 'date-time' },
         updatedAt: { type: 'string', format: 'date-time' }
     },
     required: [
@@ -78,8 +116,7 @@ export const productSchema = {
         'name', 
         'updatedAt'
     ],
-
-    additionalProperties: true
+    additionalProperties: true 
 };
 
 export const customerSchema = {
@@ -103,7 +140,7 @@ export const customerSchema = {
         'phone', 
         'updatedAt'
     ],
-    indexes: ['phone'], // Busca rápida
+    indexes: ['phone'], 
     additionalProperties: true
 };
 
@@ -114,69 +151,24 @@ export const userSchema = {
     type: 'object',
     properties: {
         id: { type: 'string', maxLength: 100 },
-
-        // Identidade
-        name: {
-            type: 'string',
-            maxLength: 100
-        },
-
-        email: {
-            type: 'string',
-            maxLength: 180
-        },
-
-        // Autenticação LOCAL
+        name: { type: 'string', maxLength: 100 },
+        email: { type: 'string', maxLength: 180 },
         pinHash: { type: 'string' },
-
-        // Autorização
-        role: {
-            type: 'string',
-            maxLength: 100
-        },
-
-        permissions: {
-            type: 'array',
-            items: { type: 'string' }
-        },
-
-        // Controle de sessão
-        active: {
-            type: 'boolean',
-            default: true
-        },
-
-        // Multi-tenant / futuro marketplace
-        businessId: {
-            type: 'string',
-            maxLength: 100
-
-        },
-
-        // Sincronização
-        updatedAt: {
-            type: 'string',
-            format: 'date-time'
-        },
-
-        createdAt: {
-            type: 'string',
-            format: 'date-time'
-        }
+        role: { type: 'string', maxLength: 100 },
+        permissions: { type: 'array', items: { type: 'string' } },
+        active: { type: 'boolean', default: true },
+        businessId: { type: 'string', maxLength: 100 },
+        updatedAt: { type: 'string', format: 'date-time' },
+        createdAt: { type: 'string', format: 'date-time' }
     },
-
     required: [
         "id",
         "email",
         "businessId",
-      //  "name",
-      //  "pinHash",
         "role",
         "active",
         "updatedAt",
-
     ],
-
     indexes: ['email', 'businessId' ],
     additionalProperties: true
 };

@@ -1,212 +1,306 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+    Check, Star, Shield, Zap, CreditCard, QrCode, Loader 
+} from 'lucide-react';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db, functions } from '../../../../config/firebase';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Crown, Star, CheckCircle, QrCode, CreditCard } from 'lucide-react';
 import { useUI } from '../../../../contexts/UIContext';
-import { functions } from '../../../../config/firebase';
+import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
+import { httpsCallable } from 'firebase/functions';
 
+// --- CONFIGURAÇÃO DO MERCADO PAGO ---
+// Idealmente, mova isso para uma variável de ambiente (.env)
 const MERCADOPAGO_PUBLIC_KEY = "TEST-fb173216-031a-4829-ab71-d51b0a13a2acI"; 
 initMercadoPago(MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 const createPreferenceCallable = httpsCallable(functions, 'createPreference');
 
+interface Plan {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    interval: 'monthly' | 'yearly';
+    features: string[];
+    recommended: boolean;
+    type: string;
+}
+
 export const SubscriptionPage: React.FC = () => {
     const { userProfile } = useAuth();
     const { showAlert } = useUI();
+    
+    // Estados de Dados
+    const [plans, setPlans] = useState<Plan[]>([]);
+    const [loadingPlans, setLoadingPlans] = useState(true);
+    const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+    // Estados de Pagamento
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const [processingPayment, setProcessingPayment] = useState(false);
     const [preferenceId, setPreferenceId] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [paymentData, setPaymentData] = useState<any>(null);
+    const [pixData, setPixData] = useState<any>(null);
     const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'pix'>('wallet');
 
-    const handleSubscribe = async (planId: string, method: 'wallet' | 'pix' = 'wallet') => {
-        setIsLoading(true);
-        setSelectedPlan(planId);
+    // Detecta o tipo de negócio
+    const businessType = userProfile?.businessProfile?.type || 'retail';
+    const planCategory = ['food_service', 'pizzaria', 'restaurant'].includes(businessType) ? 'food' : 'retail';
+
+    // --- 1. BUSCAR PLANOS DO FIREBASE ---
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const q = query(
+                    collection(db, 'plans'), 
+                    where('active', '==', true),
+                    orderBy('price', 'asc')
+                );
+                
+                const snapshot = await getDocs(q);
+                const fetchedPlans = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Plan[];
+
+                const filteredPlans = fetchedPlans.filter(p => 
+                    p.type === planCategory || p.type === 'enterprise'
+                );
+
+                setPlans(filteredPlans);
+            } catch (error) {
+                console.error("Erro ao carregar planos:", error);
+                showAlert("Erro ao carregar planos de assinatura.", "error");
+            } finally {
+                setLoadingPlans(false);
+            }
+        };
+
+        fetchPlans();
+    }, [planCategory]);
+
+    // --- 2. INICIAR PAGAMENTO (INTEGRAÇÃO MERCADO PAGO) ---
+    const handleSubscribe = async (plan: Plan, method: 'wallet' | 'pix') => {
+        setProcessingPayment(true);
+        setSelectedPlanId(plan.id);
         setPaymentMethod(method);
         setPreferenceId(null);
-        setPaymentData(null);
-        
-        showAlert(`Preparando pagamento via ${method === 'pix' ? 'PIX' : 'Mercado Pago'}...`, "info");
-        
+        setPixData(null);
+
+        showAlert(`Gerando pagamento via ${method === 'pix' ? 'PIX' : 'Mercado Pago'}...`, "info");
+
         try {
+            // Chama a Cloud Function com os dados do plano REAL do Firestore
             const result = await createPreferenceCallable({ 
-                planId, 
+                planId: plan.id, 
+                title: `Assinatura Nexus OS - ${plan.name}`, // Passa título dinâmico
+                price: plan.price, // Passa preço dinâmico
                 paymentMethod: method 
             });
-            const data = result.data as any;
             
+            const data = result.data as any;
+
             if (method === 'wallet' && data.preferenceId) {
                 setPreferenceId(data.preferenceId);
-            } else if (method === 'pix' && data.paymentId) {
-                setPaymentData(data);
+            } else if (method === 'pix' && data.qr_code_base64) {
+                setPixData(data);
             } else {
-                showAlert("Não foi possível processar o pagamento. Tente novamente.", "error");
+                throw new Error("Resposta inválida do servidor de pagamento.");
             }
+
         } catch (error: any) {
-            console.error(error);
-            showAlert(error.message || "Ocorreu um erro ao iniciar a assinatura.", "error");
+            console.error("Erro no pagamento:", error);
+            showAlert(error.message || "Falha ao iniciar pagamento.", "error");
+            setSelectedPlanId(null); // Reseta seleção em caso de erro
         } finally {
-            setIsLoading(false);
+            setProcessingPayment(false);
         }
     };
 
-    // Componente para mostrar o PIX
+    // Componente Visual do PIX
     const PixPaymentSection = ({ data }: { data: any }) => (
-        <div className="mt-4 p-4 border border-green-400 rounded-lg bg-green-50">
-            <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center gap-2">
-                <QrCode size={20} /> PIX Gerado!
+        <div className="mt-6 p-6 border-2 border-green-500 rounded-xl bg-green-50 animate-in fade-in slide-in-from-bottom-4">
+            <h3 className="text-lg font-bold text-green-800 mb-4 flex items-center gap-2">
+                <QrCode className="text-green-600" /> Pagamento PIX Gerado
             </h3>
             
-            <img 
-                src={`data:image/png;base64,${data.qr_code_base64}`} 
-                alt="QR Code PIX" 
-                className="w-48 h-48 mx-auto border rounded"
-            />
-            
-            <p className="text-sm text-center mt-3 text-green-700">
-                Escaneie o QR Code ou use o código abaixo:
-            </p>
-            
-            <div className="bg-white p-3 rounded mt-2 border">
-                <code className="text-xs break-all font-mono">
-                    {data.copy_paste}
-                </code>
+            <div className="bg-white p-2 rounded-lg border border-gray-200 w-fit mx-auto shadow-sm">
+                <img 
+                    src={`data:image/png;base64,${data.qr_code_base64}`} 
+                    alt="QR Code PIX" 
+                    className="w-48 h-48 object-contain"
+                />
             </div>
             
-            <button 
-                onClick={() => {
+            <p className="text-sm text-center mt-4 text-green-800 font-medium">
+                Copie e cole o código abaixo no seu app de banco:
+            </p>
+            
+            <div className="bg-white p-3 rounded mt-2 border border-green-200 relative group cursor-pointer"
+                 onClick={() => {
                     navigator.clipboard.writeText(data.copy_paste);
                     showAlert("Código PIX copiado!", "success");
-                }}
-                className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white py-2 rounded"
-            >
-                Copiar Código PIX
-            </button>
+                 }}>
+                <code className="text-xs break-all font-mono text-gray-600 block line-clamp-2 group-hover:text-black">
+                    {data.copy_paste}
+                </code>
+                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded transition-opacity">
+                    <span className="text-xs font-bold bg-white px-2 py-1 rounded shadow">Clique para copiar</span>
+                </div>
+            </div>
             
-            <p className="text-xs text-center mt-3 text-green-600">
-                Após o pagamento, sua assinatura será ativada automaticamente em até 2 minutos.
+            <p className="text-xs text-center mt-4 text-green-700">
+                <Loader className="inline w-3 h-3 animate-spin mr-1"/>
+                Aguardando confirmação... Sua assinatura será ativada automaticamente.
             </p>
         </div>
     );
 
-    // Componente interno para renderizar cada cartão de plano
-    const PlanCard = ({ planId, name, price, features, icon, isCurrent, isRecommended = false }: any) => (
-        <div className={`border-2 rounded-lg p-6 flex flex-col relative ${isCurrent ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-            {isRecommended && <div className="absolute -top-3 right-4 bg-yellow-400 text-black font-bold text-xs px-3 py-1 rounded-full uppercase">Recomendado</div>}
-            
-            <div className="flex items-center gap-3 mb-4">
-                {icon}
-                <h3 className="text-2xl font-bold">{name}</h3>
-            </div>
-            
-            <p className="text-4xl font-light mb-6">{price}<span className="text-lg text-gray-500">/mês</span></p>
-            
-            <ul className="space-y-3 mb-8 flex-grow text-gray-600">
-                {features.map((f: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2">
-                        <CheckCircle size={18} className="text-green-500 mt-1 flex-shrink-0" />
-                        <span>{f}</span>
-                    </li>
-                ))}
-            </ul>
-            
-            {/* Lógica dos Botões */}
-            {isCurrent ? (
-                <button className="w-full bg-green-500 text-white font-bold py-3 rounded-lg mt-auto cursor-default">
-                    Seu Plano Atual
-                </button>
-            ) : (
-                <>
-                    {selectedPlan === planId && isLoading ? (
-                        <button disabled className="w-full bg-gray-400 text-white font-bold py-3 rounded-lg mt-auto">
-                            Aguarde...
-                        </button>
-                    ) : selectedPlan === planId && preferenceId && paymentMethod === 'wallet' ? (
-                        <Wallet initialization={{ preferenceId }} />
-                    ) : selectedPlan === planId && paymentData && paymentMethod === 'pix' ? (
-                        <PixPaymentSection data={paymentData} />
-                    ) : (
-                        <div className="space-y-2 mt-auto">
-                            <button 
-                                onClick={() => handleSubscribe(planId, 'wallet')}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                <CreditCard size={18} />
-                                Cartão ou Boleto
-                            </button>
-                            
-                            <button 
-                                onClick={() => handleSubscribe(planId, 'pix')}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                <QrCode size={18} />
-                                Pagar com PIX
-                            </button>
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
-    );
-    
-    const currentPlanId = userProfile?.subscription?.planId || 'free';
+    if (loadingPlans) {
+        return <div className="flex justify-center items-center h-96"><Loader className="animate-spin text-blue-600 w-10 h-10" /></div>;
+    }
 
     return (
-        <div className="space-y-8">
-            <div className="text-center">
-                 <h1 className="text-4xl font-bold text-gray-800">Planos e Assinatura</h1>
-                 <p className="text-lg text-gray-600 mt-2">Escolha o plano que melhor se adapta ao crescimento do seu negócio.</p>
+        <div className="max-w-7xl mx-auto px-4 py-12">
+            <div className="text-center mb-12">
+                <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Planos e Assinatura</h1>
+                <p className="text-xl text-gray-500 max-w-2xl mx-auto">
+                    Potencialize o seu negócio com o Nexus OS.
+                </p>
+
+                {/* Toggle Mensal/Anual */}
+                <div className="mt-8 flex justify-center items-center gap-4">
+                    <span className={`text-sm font-bold ${billingCycle === 'monthly' ? 'text-gray-900' : 'text-gray-500'}`}>Mensal</span>
+                    <button 
+                        onClick={() => setBillingCycle(prev => prev === 'monthly' ? 'yearly' : 'monthly')}
+                        className={`relative w-14 h-8 flex items-center rounded-full p-1 transition-colors ${billingCycle === 'yearly' ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                        <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform ${billingCycle === 'yearly' ? 'translate-x-6' : ''}`} />
+                    </button>
+                    <span className={`text-sm font-bold ${billingCycle === 'yearly' ? 'text-gray-900' : 'text-gray-500'}`}>
+                        Anual <span className="text-green-600 text-xs ml-1">(-20%)</span>
+                    </span>
+                </div>
+            </div>
+
+            {/* Grid de Planos */}
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-start">
+                {plans.filter(p => p.interval === billingCycle).map((plan) => {
+                    // Verifica se é o plano que está sendo pago agora
+                    const isPayingThis = selectedPlanId === plan.id;
+                    const isCurrentPlan = userProfile?.subscription?.planId === plan.id;
+
+                    return (
+                        <div 
+                            key={plan.id} 
+                            className={`relative rounded-2xl border-2 p-6 shadow-xl flex flex-col transition-all ${
+                                plan.recommended 
+                                    ? 'border-blue-600 bg-white ring-4 ring-blue-50 z-10 scale-105' 
+                                    : 'border-gray-100 bg-white hover:border-blue-200'
+                            }`}
+                        >
+                            {plan.recommended && (
+                                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold flex items-center gap-1 shadow-lg">
+                                    <Star size={14} fill="white" /> RECOMENDADO
+                                </div>
+                            )}
+
+                            <div className="mb-4 text-center">
+                                <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                                <div className="flex items-center justify-center mt-4">
+                                    <span className="text-4xl font-extrabold text-gray-900">R$ {plan.price}</span>
+                                    <span className="text-gray-500 ml-1">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span>
+                                </div>
+                                <p className="text-gray-500 text-sm mt-3">{plan.description}</p>
+                            </div>
+
+                            <ul className="space-y-3 mb-8 flex-1">
+                                {plan.features.map((feature, idx) => (
+                                    <li key={idx} className="flex items-start">
+                                        <Check size={18} className="text-green-500 mr-2 flex-shrink-0" />
+                                        <span className="text-gray-600 text-sm">{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* ÁREA DE AÇÃO (Botões ou Pagamento) */}
+                            <div className="mt-auto space-y-3">
+                                {isCurrentPlan ? (
+                                    <button disabled className="w-full py-3 bg-green-100 text-green-700 font-bold rounded-xl cursor-default border border-green-200">
+                                        Seu Plano Atual
+                                    </button>
+                                ) : isPayingThis ? (
+                                    // MODO PAGAMENTO ATIVO
+                                    <div className="animate-in fade-in zoom-in duration-300">
+                                        {processingPayment ? (
+                                            <button disabled className="w-full py-3 bg-gray-100 text-gray-500 font-bold rounded-xl flex justify-center items-center gap-2">
+                                                <Loader className="animate-spin" size={18} /> Processando...
+                                            </button>
+                                        ) : preferenceId && paymentMethod === 'wallet' ? (
+                                            // Botão Oficial do Mercado Pago
+                                            <div className="custom-wallet-container">
+                                                <Wallet initialization={{ preferenceId }} customization={{ texts: { valueProp: 'security_safety' } }} />
+                                                <button 
+                                                    onClick={() => setSelectedPlanId(null)} 
+                                                    className="w-full mt-2 text-xs text-gray-500 hover:text-red-500 underline"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        ) : pixData && paymentMethod === 'pix' ? (
+                                            // QR Code do Pix
+                                            <>
+                                                <PixPaymentSection data={pixData} />
+                                                <button 
+                                                    onClick={() => setSelectedPlanId(null)} 
+                                                    className="w-full mt-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                                                >
+                                                    Fechar / Escolher Outro
+                                                </button>
+                                            </>
+                                        ) : (
+                                            // Fallback de erro
+                                            <button onClick={() => setSelectedPlanId(null)} className="text-red-500 text-sm w-full text-center">
+                                                Erro. Tentar novamente.
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    // BOTÕES DE ESCOLHA INICIAIS
+                                    <>
+                                        <button 
+                                            onClick={() => handleSubscribe(plan, 'wallet')}
+                                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
+                                        >
+                                            <CreditCard size={18} /> Cartão
+                                        </button>
+                                        <button 
+                                            onClick={() => handleSubscribe(plan, 'pix')}
+                                            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
+                                        >
+                                            <QrCode size={18} /> PIX
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {plans.length === 0 && (
+                    <div className="col-span-3 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                        <Shield className="mx-auto text-gray-300 mb-4" size={48} />
+                        <h3 className="text-lg font-bold text-gray-600">Nenhum plano disponível</h3>
+                        <p className="text-gray-500">O administrador ainda não cadastrou planos para o seu segmento.</p>
+                    </div>
+                )}
             </div>
             
-            <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {/* Seus PlanCards aqui (mantenha como estão) */}
-                <PlanCard 
-                    planId="free"
-                    name="Plano Grátis"
-                    price="R$ 0"
-                    icon={<Star size={24} className="text-gray-500" />}
-                    isCurrent={currentPlanId === 'free'}
-                    features={[
-                        "Até 200 pedidos/mês",
-                        "1 Usuário (Admin)",
-                        "1 Impressora (Caixa)",
-                        "Controle de Mesas, Balcão e Delivery",
-                        "Suporte Básico por E-mail"
-                    ]}
-                />
-                
-                <PlanCard 
-                    planId="pro_1pc"
-                    name="Plano Pro"
-                    price="R$ 99,90"
-                    icon={<Crown size={24} className="text-blue-500" />}
-                    isCurrent={currentPlanId === 'pro_1pc'}
-                    isRecommended={true}
-                    features={[
-                        "Pedidos ILIMITADOS",
-                        "Até 3 Usuários com permissões",
-                        "2 Impressoras (Caixa e Cozinha)",
-                        "Programas de Fidelidade e Cupons",
-                        "Relatórios Avançados",
-                        "Inteligência de Negocio",
-                        "Suporte Premium (WhatsApp & Telefone)"
-                    ]}
-                />
-                
-                <PlanCard 
-                    planId="ultra_network"
-                    name="Plano Ultra"
-                    price="R$ 149,90"
-                    icon={<Crown size={24} className="text-purple-500" />}
-                    isCurrent={currentPlanId === 'ultra_network'}
-                    features={[
-                        "TODOS os recursos do Plano Pro",
-                        "Uso em REDE (PCs ilimitados)",
-                        "Módulo de Marketing Avançado",
-                        "Suporte Completo (Plantão de Fim de Semana)",
-                    ]}
-                />
+            {/* Footer de Confiança */}
+            <div className="mt-16 border-t pt-8 text-center text-gray-400 text-sm">
+                <p className="flex justify-center items-center gap-2">
+                    <Shield size={14} /> Pagamentos processados via Mercado Pago com segurança SSL.
+                </p>
             </div>
         </div>
     );

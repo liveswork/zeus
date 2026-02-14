@@ -68,6 +68,23 @@ function normalizeUser(doc: any) {
   };
 }
 
+function normalizeProduct(doc: any) {
+  const updatedAt =
+    toIsoDate(doc.updatedAt) ??
+    toIsoDate(doc.createdAt) ??
+    new Date().toISOString();
+
+  return {
+    ...doc,
+    id: doc.id ?? doc._id ?? doc.uid, // id sempre
+    updatedAt,
+    createdAt: toIsoDate(doc.createdAt) ?? updatedAt,
+    name: doc.name ?? doc.title ?? "", // garante required
+  };
+}
+
+type UpdatedAtCheckpoint = { updatedAt: string };
+type MaybeCheckpoint = UpdatedAtCheckpoint | null | undefined;
 
 export const syncFirestore = async (
   rxCollection: RxCollection,
@@ -88,17 +105,28 @@ export const syncFirestore = async (
   // ===============================
 
   const startLivePull = () => {
+    if (!auth.currentUser) return;
+
     if (unsubscribeSnapshot) return;
 
     telemetryService.track('SYNC_LIVE_PULL_START', {
       collection: firestoreCollectionName
     });
 
-    const q = query(
-      firestoreCol,
-      orderBy('updatedAt', 'desc'),
-      limit(25) // maior que antes -> menos roundtrip
-    );
+    const uid = auth.currentUser!.uid;
+
+    const q = firestoreCollectionName === 'products'
+      ? query(
+        firestoreCol,
+        where('businessId', '==', uid),
+        orderBy('updatedAt', 'desc'),
+        limit(25)
+      )
+      : query(
+        firestoreCol,
+        orderBy('updatedAt', 'desc'),
+        limit(25)
+      );
 
     unsubscribeSnapshot = onSnapshot(
       q,
@@ -108,7 +136,11 @@ export const syncFirestore = async (
 
           if (change.type === 'added' || change.type === 'modified') {
 
-            let docData: any = change.doc.data();
+            let docData: any = { id: change.doc.id, ...change.doc.data() };
+
+            if (firestoreCollectionName === "products") {
+              docData = normalizeProduct(docData);
+            }
 
             if (firestoreCollectionName === "users") {
               docData = normalizeUser(docData);
@@ -130,15 +162,13 @@ export const syncFirestore = async (
         });
       },
       (error) => {
-
-        telemetryService.track('SYNC_STREAM_ERROR', {
+        telemetryService.track('SYNC_STREAM_ERROR' as any, {
           collection: firestoreCollectionName,
-          code: error.code
+          code: (error as any)?.code,
+          message: (error as any)?.message
         });
 
-        if (error.code !== 'permission-denied') {
-          console.error(`Erro stream ${firestoreCollectionName}`, error);
-        }
+        console.error(`[SYNC_STREAM_ERROR] ${firestoreCollectionName}`, error);
       }
     );
   };
@@ -193,55 +223,54 @@ export const syncFirestore = async (
       },
 
 
-      handler: async (lastCheckpoint, batchSize) => {
-
-        if (!auth.currentUser)
-          return { documents: [], checkpoint: lastCheckpoint };
+      handler: async (lastCheckpoint: MaybeCheckpoint, batchSize) => {
+        if (!auth.currentUser) {
+          return { documents: [], checkpoint: lastCheckpoint ?? null };
+        }
 
         let q = query(
           firestoreCol,
+          where('businessId', '==', auth.currentUser!.uid),
           orderBy('updatedAt', 'asc'),
           limit(batchSize)
         );
 
-        if (lastCheckpoint) {
-          q = query(q,
-            where('updatedAt', '>',
-              lastCheckpoint.updatedAt));
+        if (lastCheckpoint?.updatedAt) {
+          q = query(q, where('updatedAt', '>', lastCheckpoint.updatedAt));
         }
 
         const snapshot = await getDocs(q);
 
         const documents = snapshot.docs.map(d => {
-          let data: any = d.data();
+          let data: any = { id: d.id, ...d.data() };
+
+          if (firestoreCollectionName === "products") {
+            data = normalizeProduct(data);
+          }
 
           if (firestoreCollectionName === "users") {
             data = normalizeUser(data);
           } else {
-            if (data.updatedAt instanceof Timestamp) {
-              data.updatedAt = data.updatedAt.toDate().toISOString();
-            }
-            if (data.createdAt instanceof Timestamp) {
-              data.createdAt = data.createdAt.toDate().toISOString();
-            }
+            data.updatedAt = toIsoDate(data.updatedAt) ?? data.updatedAt;
+            data.createdAt = toIsoDate(data.createdAt) ?? data.createdAt;
           }
 
           return data;
         });
 
-        telemetryService.track('SYNC_PULL_BATCH', {
+        telemetryService.track('SYNC_PULL_BATCH' as any, {
           collection: firestoreCollectionName,
           count: documents.length
         });
 
-        return {
-          documents,
-          checkpoint:
-            documents.length > 0
-              ? { updatedAt: documents.at(-1).updatedAt }
-              : lastCheckpoint
-        };
+        const checkpoint: UpdatedAtCheckpoint | null =
+          documents.length > 0
+            ? { updatedAt: documents[documents.length - 1].updatedAt }
+            : (lastCheckpoint ?? null);
+
+        return { documents, checkpoint };
       },
+
 
       stream$: pullStream$
     },
