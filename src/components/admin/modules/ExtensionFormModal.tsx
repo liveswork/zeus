@@ -1,45 +1,26 @@
-// src/components/admin/modules/ExtensionFormModal.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../ui/Modal';
 import { FormField } from '../../ui/FormField';
-import { PlusCircle, Trash2, UploadCloud, Loader, PackageOpen } from 'lucide-react';
-import { getStorage, ref, uploadBytes } from 'firebase/storage';
+import { PlusCircle, Trash2, UploadCloud, Loader, X, Image as ImageIcon, PackageOpen } from 'lucide-react';
+// Importação correta das instâncias
+import { storage, db } from '../../../config/firebase'; 
+import { ref, uploadBytesResumable } from 'firebase/storage';
+import { doc, collection } from 'firebase/firestore'; 
 import { useAuth } from '../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface ExtensionFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (extensionData: any) => void;
-  initialData?: any;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (extensionData: any) => void;
+    initialData?: any;
 }
-
-
-// Helper para upload de mídia
-const handleFileUpload = async (file, extensionId, imageType, storage) => {
-    if (!extensionId) {
-        toast.error("Salve a extensão primeiro para obter um ID e poder enviar imagens.");
-        return null;
-    }
-    const toastId = toast.loading(`Enviando ${imageType}...`);
-    try {
-        const filePath = `uploads/extensions/${extensionId}_${imageType}_${Date.now()}`;
-        const storageRef = ref(storage, filePath);
-        // A Cloud Function irá processar a imagem e atualizar o documento da extensão.
-        await uploadBytes(storageRef, file);
-        toast.success(`Upload de ${imageType} concluído! A imagem aparecerá após o processamento.`, { id: toastId });
-        return; // A URL será atualizada por uma função de back-end
-    } catch (error) {
-        console.error("Upload error:", error);
-        toast.error(`Falha no upload de ${imageType}.`, { id: toastId });
-        return null;
-    }
-};
 
 export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
     const { user } = useAuth();
-    const storage = getStorage();
+
+    // ID do documento (Gerado ou Existente)
+    const [docId, setDocId] = useState('');
 
     const getInitialState = () => ({
         name: '',
@@ -52,35 +33,48 @@ export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, 
         faq: '<h3>Pergunta Comum?</h3><p>Resposta da pergunta.</p>',
         changelog: '<h4>Versão 1.0.0</h4><ul><li>Lançamento inicial da extensão.</li></ul>',
         version: '1.0.0',
-        pricingPlans: [], // ✅ GARANTIDO: Array vazio para planos
+        pricingPlans: [],
         authorWebsite: '',
         repositoryUrl: '',
         lastUpdated: new Date().toLocaleDateString('pt-BR'),
         isCompatible: true,
-        status: 'pending_review',
+        status: 'approved',
         mediaAssets: { logo: '', banner: '' },
-        screenshots: [''],
+        screenshots: [], // Array de URLs (Strings)
         createdBy: user?.uid || 'unknown',
         createdAt: new Date().toISOString(),
         ...initialData
     });
 
-
     const [formData, setFormData] = useState(getInitialState());
     const [activeTab, setActiveTab] = useState('geral');
+    
+    // Controle de Loading
+    const [uploading, setUploading] = useState({ logo: false, banner: false, screenshot: false });
+    
+    // Previews locais (apenas para logo e banner, screenshots vão direto pro array)
+    const [previews, setPreviews] = useState({ logo: '', banner: '' });
 
     useEffect(() => {
         if (isOpen) {
-            const initialState = getInitialState();
-            if (initialData) {
-                // ✅ PRESERVA: Garante que pricingPlans seja sempre um array válido
+            if (initialData && initialData.id) {
+                setDocId(initialData.id);
                 setFormData({
-                    ...initialState,
+                    ...getInitialState(),
                     ...initialData,
-                    pricingPlans: Array.isArray(initialData.pricingPlans) ? initialData.pricingPlans : []
+                    mediaAssets: initialData.mediaAssets || { logo: '', banner: '' },
+                    pricingPlans: Array.isArray(initialData.pricingPlans) ? initialData.pricingPlans : [],
+                    screenshots: Array.isArray(initialData.screenshots) ? initialData.screenshots : []
+                });
+                setPreviews({
+                    logo: initialData.mediaAssets?.logo || '',
+                    banner: initialData.mediaAssets?.banner || ''
                 });
             } else {
-                setFormData(initialState);
+                const newId = doc(collection(db, 'extensions')).id;
+                setDocId(newId);
+                setFormData(getInitialState());
+                setPreviews({ logo: '', banner: '' });
             }
             setActiveTab('geral');
         }
@@ -91,68 +85,155 @@ export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, 
         setFormData(p => ({ ...p, [name]: value }));
     };
 
-    // ✅ NOVAS FUNÇÕES PARA GERENCIAR OS PLANOS DE PREÇOS
-    const handlePlanChange = (index: number, field: string, value: any) => {
-        setFormData(prev => {
-            const newPlans = [...(prev.pricingPlans || [])];
-            if (newPlans[index]) {
-                newPlans[index] = { ...newPlans[index], [field]: value };
-            }
-            return { ...prev, pricingPlans: newPlans };
-        });
-    };
+    // --- UPLOAD LOGO & BANNER ---
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'banner') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
 
-    const addPlan = () => {
-        setFormData(prev => ({
-            ...prev,
-            pricingPlans: [
-                ...(prev.pricingPlans || []),
-                { 
-                    name: 'Essencial', 
-                    price: '19.90', 
-                    description: 'Ideal para pequenos negócios', 
-                    features: '500 scans/mês' 
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Máximo 5MB");
+            return;
+        }
+
+        setUploading(prev => ({ ...prev, [type]: true }));
+        const toastId = toast.loading(`Enviando ${type}...`);
+
+        try {
+            // Preview Local Imediato
+            const localPreview = URL.createObjectURL(file);
+            setPreviews(prev => ({ ...prev, [type]: localPreview }));
+
+            // Nome único
+            const fileName = `${Date.now()}_${type}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+            const folderPath = 'uploads/extensions'; 
+            const fullPath = `${folderPath}/${fileName}`;
+            
+            // Referência
+            const storageRef = ref(storage, fullPath);
+
+            // Metadados para a Cloud Function (Otimização futura)
+            const metadata = {
+                contentType: file.type,
+                customMetadata: {
+                    extensionId: docId,
+                    imageType: type
                 }
-            ]
-        }));
-    };
+            };
 
-    const removePlan = (index: number) => {
-        const newPlans = formData.pricingPlans.filter((_: any, i: number) => i !== index);
-        setFormData({ ...formData, pricingPlans: newPlans });
-    };
+            // Upload
+            await uploadBytesResumable(storageRef, file, metadata);
 
-    const handleScreenshotChange = (index, value) => {
-        const newScreenshots = [...(formData.screenshots || [''])];
-        newScreenshots[index] = value;
-        setFormData(p => ({ ...p, screenshots: newScreenshots }));
-    };
-    
-    const addScreenshotField = () => setFormData(p => ({ ...p, screenshots: [...(p.screenshots || []), ''] }));
-    const removeScreenshotField = (index) => setFormData(p => ({ ...p, screenshots: p.screenshots.filter((_, i) => i !== index) }));
+            // --- TRUQUE DA URL PÚBLICA ---
+            // Em vez de getDownloadURL (que gera token), construímos a URL pública persistente.
+            // Para isso funcionar, sua regra de storage deve ter: allow read: if true;
+            const bucketName = 'zeuspdv.firebasestorage.app'; // Seu bucket
+            const encodedPath = encodeURIComponent(fullPath);
+            const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media`;
 
-    const handleFileChange = (e, imageType) => {
-        const file = e.target.files[0];
-        if (file) {
-            handleFileUpload(file, formData.id, imageType, storage);
+            console.log(`[Upload URL]`, publicUrl);
+
+            // Salva no State
+            setFormData(prev => ({
+                ...prev,
+                mediaAssets: {
+                    ...prev.mediaAssets,
+                    [type]: publicUrl
+                }
+            }));
+
+            toast.success("Upload concluído!", { id: toastId });
+
+        } catch (error: any) {
+            console.error("Erro upload:", error);
+            toast.error(`Erro: ${error.message}`, { id: toastId });
+        } finally {
+            setUploading(prev => ({ ...prev, [type]: false }));
+            e.target.value = '';
         }
     };
 
+    // --- NOVO: UPLOAD DE SCREENSHOTS ---
+    const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("A imagem deve ter no máximo 5MB");
+            return;
+        }
+
+        setUploading(prev => ({ ...prev, screenshot: true }));
+        const toastId = toast.loading("Enviando tela...");
+
+        try {
+            const fileName = `${Date.now()}_screen_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+            const folder = 'uploads/extensions/screenshots'; // Subpasta organizada
+            const storagePath = `${folder}/${fileName}`;
+            const storageRef = ref(storage, storagePath);
+
+            const metadata = {
+                contentType: file.type,
+                customMetadata: {
+                    extensionId: docId,
+                    imageType: 'screenshot',
+                    action: 'optimize'
+                }
+            };
+
+            const snapshot = await uploadBytesResumable(storageRef, file, metadata);
+            const bucketName = snapshot.ref.bucket;
+            const publicUrl = `https://storage.googleapis.com/${bucketName}/${folder}/${fileName}`;
+
+            // Adiciona a nova URL ao array existente
+            setFormData(prev => ({
+                ...prev,
+                screenshots: [...(prev.screenshots || []), publicUrl]
+            }));
+
+            toast.success("Tela adicionada!", { id: toastId });
+
+        } catch (error: any) {
+            console.error("Erro upload screenshot:", error);
+            toast.error("Falha no upload.", { id: toastId });
+        } finally {
+            setUploading(prev => ({ ...prev, screenshot: false }));
+            e.target.value = '';
+        }
+    };
+
+    const removeScreenshot = (indexToRemove: number) => {
+        setFormData(prev => ({
+            ...prev,
+            screenshots: prev.screenshots.filter((_, index) => index !== indexToRemove)
+        }));
+    };
+
+    // --- PLANOS ---
+    const handlePlanChange = (index: number, field: string, value: any) => {
+        setFormData(prev => {
+            const newPlans = [...(prev.pricingPlans || [])];
+            if (newPlans[index]) newPlans[index] = { ...newPlans[index], [field]: value };
+            return { ...prev, pricingPlans: newPlans };
+        });
+    };
+    const addPlan = () => setFormData(prev => ({ ...prev, pricingPlans: [...(prev.pricingPlans || []), { name: 'Padrão', price: '0.00', description: '', features: '' }] }));
+    const removePlan = (index: number) => setFormData(prev => ({ ...prev, pricingPlans: prev.pricingPlans.filter((_, i) => i !== index) }));
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // ✅ GARANTE: pricingPlans sempre é um array antes de salvar
-        const dataToSave = {
-            ...formData,
-            pricingPlans: formData.pricingPlans || []
-        };
-        onSave(dataToSave);
+        onSave({ 
+            ...formData, 
+            id: docId, 
+            pricingPlans: formData.pricingPlans || [],
+            screenshots: formData.screenshots || []
+        });
     };
 
     const tabs = [
         { key: 'geral', label: 'Geral' },
-        { key: 'conteudo', label: 'Conteúdo Detalhado' },
-        { key: 'midia', label: 'Mídia e Telas' },
-         { key: 'planos', label: 'Planos' },
+        { key: 'conteudo', label: 'Conteúdo' },
+        { key: 'midia', label: 'Mídia' },
+        { key: 'planos', label: 'Planos' },
     ];
 
     return (
@@ -160,28 +241,23 @@ export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <nav className="flex space-x-4 border-b border-gray-200">
                     {tabs.map(tab => (
-                        <button 
-                            key={tab.key} 
-                            type="button" 
-                            onClick={() => setActiveTab(tab.key)} 
-                            className={`py-3 px-1 text-sm font-semibold ${activeTab === tab.key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
+                        <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`py-3 px-1 text-sm font-semibold ${activeTab === tab.key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
                             {tab.label}
                         </button>
                     ))}
                 </nav>
 
-                {/* ABA GERAL - MANTIDA IDÊNTICA */}
+                {/* ABA GERAL */}
                 <div className={activeTab === 'geral' ? 'block' : 'hidden'}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField label="Nome da Extensão">
                             <input name="name" value={formData.name} onChange={handleChange} required className="w-full p-2 border rounded" />
                         </FormField>
-                        <FormField label="Feature Key (ID para código)">
-                            <input name="featureKey" value={formData.featureKey} onChange={handleChange} placeholder="ex: integration_ifood" required className="w-full p-2 border rounded" />
+                        <FormField label="Feature Key">
+                            <input name="featureKey" value={formData.featureKey} onChange={handleChange} placeholder="ex: integration_ifood" required className="w-full p-2 border rounded bg-gray-50 font-mono text-sm" />
                         </FormField>
                     </div>
-                    <FormField label="Descrição Curta (para o card)">
+                    <FormField label="Descrição Curta">
                         <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full p-2 border rounded mt-4"/>
                     </FormField>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -197,56 +273,132 @@ export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, 
                     </div>
                 </div>
 
-                {/* ABA CONTEÚDO - MANTIDA IDÊNTICA */}
+                {/* ABA CONTEÚDO */}
                 <div className={`${activeTab === 'conteudo' ? 'block' : 'hidden'} space-y-4`}>
-                    <FormField label="Descrição Detalhada (HTML permitido)">
-                        <textarea name="description_long" value={formData.description_long} onChange={handleChange} rows={6} className="w-full p-2 border rounded"/>
+                    <FormField label="Descrição Detalhada (HTML)">
+                        <textarea name="description_long" value={formData.description_long} onChange={handleChange} rows={6} className="w-full p-2 border rounded font-mono text-xs"/>
                     </FormField>
-                    <FormField label="Guia de Instalação (HTML permitido)">
-                        <textarea name="installation_guide" value={formData.installation_guide} onChange={handleChange} rows={6} className="w-full p-2 border rounded"/>
-                    </FormField>
-                    <FormField label="FAQ (HTML permitido)">
-                        <textarea name="faq" value={formData.faq} onChange={handleChange} rows={6} className="w-full p-2 border rounded"/>
-                    </FormField>
-                    <FormField label="Registro de Alterações (HTML permitido)">
-                        <textarea name="changelog" value={formData.changelog} onChange={handleChange} rows={6} className="w-full p-2 border rounded"/>
+                    <FormField label="Guia de Instalação (HTML)">
+                        <textarea name="installation_guide" value={formData.installation_guide} onChange={handleChange} rows={4} className="w-full p-2 border rounded font-mono text-xs"/>
                     </FormField>
                 </div>
 
-                {/* ABA MÍDIA - MANTIDA IDÊNTICA */}
-                <div className={`${activeTab === 'midia' ? 'block' : 'hidden'} space-y-4`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
-                        <FormField label="Logo (Quadrado, 256x256)">
-                            <input type="file" onChange={(e) => handleFileChange(e, 'logo')} disabled={!formData.id} className="text-sm" />
-                        </FormField>
-                        <FormField label="Banner (Retangular, 772x250)">
-                            <input type="file" onChange={(e) => handleFileChange(e, 'banner')} disabled={!formData.id} className="text-sm" />
-                        </FormField>
-                    </div>
-                    <FormField label="URLs das Telas (Screenshots)">
+                {/* ABA MÍDIA */}
+                <div className={`${activeTab === 'midia' ? 'block' : 'hidden'} space-y-6`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* UPLOAD LOGO */}
                         <div className="space-y-2">
-                            {(formData.screenshots || []).map((url, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <input 
-                                        type="url" 
-                                        placeholder="https://..." 
-                                        value={url} 
-                                        onChange={(e) => handleScreenshotChange(index, e.target.value)} 
-                                        className="w-full p-2 border rounded" 
-                                    />
-                                    <button type="button" onClick={() => removeScreenshotField(index)} className="text-red-500">
-                                        <Trash2 size={18} />
-                                    </button>
+                            <label className="block text-sm font-medium text-gray-700">Logo (Quadrado)</label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition relative h-48 flex flex-col items-center justify-center bg-gray-50">
+                                {uploading.logo ? (
+                                    <div className="flex flex-col items-center">
+                                        <Loader className="animate-spin text-blue-500 mb-2" />
+                                        <span className="text-xs text-gray-500">Enviando...</span>
+                                    </div>
+                                ) : previews.logo ? (
+                                    <div className="relative group w-full h-full flex items-center justify-center">
+                                        <img src={previews.logo} alt="Logo Preview" className="max-w-full max-h-full object-contain rounded shadow-sm" />
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                setPreviews(p => ({...p, logo: ''}));
+                                                setFormData(p => ({...p, mediaAssets: {...p.mediaAssets, logo: ''}}));
+                                            }}
+                                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="py-4 w-full">
+                                        <UploadCloud className="mx-auto text-gray-400 mb-2" />
+                                        <label className="cursor-pointer bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-200 transition block w-fit mx-auto">
+                                            Escolher Logo
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* UPLOAD BANNER */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">Banner (Retangular)</label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition relative h-48 flex flex-col items-center justify-center bg-gray-50">
+                                {uploading.banner ? (
+                                    <div className="flex flex-col items-center">
+                                        <Loader className="animate-spin text-blue-500 mb-2" />
+                                        <span className="text-xs text-gray-500">Enviando...</span>
+                                    </div>
+                                ) : previews.banner ? (
+                                    <div className="relative group w-full h-full flex items-center justify-center">
+                                        <img src={previews.banner} alt="Banner Preview" className="max-w-full max-h-full object-cover rounded shadow-sm" />
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                setPreviews(p => ({...p, banner: ''}));
+                                                setFormData(p => ({...p, mediaAssets: {...p.mediaAssets, banner: ''}}));
+                                            }}
+                                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="py-4 w-full">
+                                        <ImageIcon className="mx-auto text-gray-400 mb-2" />
+                                        <label className="cursor-pointer bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-200 transition block w-fit mx-auto">
+                                            Escolher Banner
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} />
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* GALERIA DE SCREENSHOTS (NOVA IMPLEMENTAÇÃO) */}
+                    <FormField label="Galeria de Telas (Screenshots)">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Card de Adicionar Novo */}
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg h-32 flex flex-col items-center justify-center hover:bg-gray-50 transition cursor-pointer relative">
+                                {uploading.screenshot ? (
+                                    <Loader className="animate-spin text-blue-500" />
+                                ) : (
+                                    <>
+                                        <PlusCircle className="text-blue-500 mb-1" size={24} />
+                                        <span className="text-xs text-gray-600 font-medium">Adicionar Tela</span>
+                                        <input 
+                                            type="file" 
+                                            className="absolute inset-0 opacity-0 cursor-pointer" 
+                                            accept="image/*"
+                                            onChange={handleScreenshotUpload}
+                                        />
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Lista de Imagens */}
+                            {(formData.screenshots || []).map((url: string, index: number) => (
+                                <div key={index} className="relative group border rounded-lg overflow-hidden h-32 bg-gray-100">
+                                    <img src={url} alt={`Tela ${index}`} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => removeScreenshot(index)}
+                                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
-                            <button type="button" onClick={addScreenshotField} className="text-sm text-blue-600 font-semibold">
-                                <PlusCircle size={16} className="inline mr-1" /> Adicionar URL
-                            </button>
                         </div>
                     </FormField>
                 </div>
 
-                {/* ✅ ABA PLANOS - MELHORIAS DE SEGURANÇA */}
+                {/* ABA PLANOS */}
                 <div className={`${activeTab === 'planos' ? 'block' : 'hidden'} space-y-4`}>
                     <div className="border rounded-lg p-4 bg-gray-50">
                         <div className="flex justify-between items-center mb-4">
@@ -255,74 +407,34 @@ export const ExtensionFormModal: React.FC<ExtensionFormModalProps> = ({ isOpen, 
                                 <PlusCircle size={16} /> Adicionar Plano
                             </button>
                         </div>
-
                         <div className="space-y-4 max-h-96 overflow-y-auto">
                             {(formData.pricingPlans || []).map((plan: any, index: number) => (
                                 <div key={index} className="bg-white p-4 rounded-lg border relative">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => removePlan(index)} 
-                                        className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                    
+                                    <button type="button" onClick={() => removePlan(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                        <FormField label="Nome do Plano">
-                                            <input 
-                                                value={plan.name || ''} 
-                                                onChange={(e) => handlePlanChange(index, 'name', e.target.value)} 
-                                                className="w-full p-2 border rounded"
-                                                placeholder="Ex: Básico, Profissional, Enterprise"
-                                            />
+                                        <FormField label="Nome">
+                                            <input value={plan.name || ''} onChange={(e) => handlePlanChange(index, 'name', e.target.value)} className="w-full p-2 border rounded" placeholder="Ex: Básico" />
                                         </FormField>
-                                        <FormField label="Preço Mensal (R$)">
-                                            <input 
-                                                type="number" 
-                                                step="0.01"
-                                                value={plan.price || ''} 
-                                                onChange={(e) => handlePlanChange(index, 'price', e.target.value)} 
-                                                className="w-full p-2 border rounded"
-                                                placeholder="0.00"
-                                            />
+                                        <FormField label="Preço (R$)">
+                                            <input type="number" step="0.01" value={plan.price || ''} onChange={(e) => handlePlanChange(index, 'price', e.target.value)} className="w-full p-2 border rounded" placeholder="0.00" />
                                         </FormField>
                                     </div>
-                                    
-                                    <FormField label="Descrição do Plano">
-                                        <textarea 
-                                            value={plan.description || ''} 
-                                            onChange={(e) => handlePlanChange(index, 'description', e.target.value)} 
-                                            rows={2}
-                                            className="w-full p-2 border rounded"
-                                            placeholder="Descreva os benefícios deste plano"
-                                        />
-                                    </FormField>
-                                    
-                                    <FormField label="Recursos Principais">
-                                        <input 
-                                            value={plan.features || ''} 
-                                            onChange={(e) => handlePlanChange(index, 'features', e.target.value)} 
-                                            className="w-full p-2 border rounded"
-                                            placeholder="Ex: 500 scans/mês, Suporte 24h, Relatórios avançados"
-                                        />
+                                    <FormField label="Recursos">
+                                        <input value={plan.features || ''} onChange={(e) => handlePlanChange(index, 'features', e.target.value)} className="w-full p-2 border rounded" placeholder="Recursos separados por vírgula" />
                                     </FormField>
                                 </div>
                             ))}
-                            
                             {(!formData.pricingPlans || formData.pricingPlans.length === 0) && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <PackageOpen size={48} className="mx-auto mb-2 opacity-50" />
-                                    <p>Nenhum plano de assinatura configurado</p>
-                                    <p className="text-sm">Adicione planos para oferecer diferentes opções de preço</p>
-                                </div>
+                                <div className="text-center py-8 text-gray-500"><PackageOpen size={48} className="mx-auto mb-2 opacity-50" /><p>Nenhum plano configurado</p></div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t">
-                    <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">
-                        {formData.id ? 'Atualizar' : 'Salvar'} Extensão
+                <div className="flex justify-end pt-4 border-t gap-3">
+                    <button type="button" onClick={onClose} className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">
+                        {formData.id ? 'Atualizar' : 'Criar Extensão'}
                     </button>
                 </div>
             </form>

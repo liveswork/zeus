@@ -33,6 +33,12 @@ import { AIMonitoringPanel } from '../ai/AIMonitoringPanel';
 
 import { FinancialPage } from './modules/financial/FinancialPage';
 
+// 1. Importe o componente principal que criamos
+// Usamos Lazy load para não pesar o carregamento inicial
+const StoreAppearance = React.lazy(() => 
+  import('./modules/settings/StoreAppearance').then(module => ({ default: module.StoreAppearance }))
+);
+
 
 export const BusinessApp: React.FC = () => {
   useAuth();
@@ -68,7 +74,9 @@ export const BusinessApp: React.FC = () => {
           <Route path="settings" element={<SettingsManager />} />
           <Route path="financial" element={<FinancialPage />} />
           
-        
+        {/* ✅ 2. ADICIONE ESTA NOVA ROTA */}
+          {/* Isso habilita o link: nexus.app/#/painel/loja/personalizar */}
+          <Route path="loja/personalizar" element={<StoreAppearance />} />
 
           <Route path="foodverse/essencia" element={<EssenceAdminPanel />} />
           <Route path="foodverse/jornadas" element={<JourneyAdminPanel />} />

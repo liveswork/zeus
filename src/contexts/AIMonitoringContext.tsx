@@ -62,40 +62,54 @@ export const AIMonitoringProvider: React.FC<AIMonitoringProviderProps> = ({ chil
 
   // IA Principal - Análise Contínua
   useEffect(() => {
-    if (!isMonitoring || !userProfile) return;
+    // --- PROTEÇÃO CONTRA CRASH (CORREÇÃO APLICADA) ---
+    // Se o monitoramento estiver desligado OU o perfil do usuário ainda não carregou, PARA TUDO.
+    if (!isMonitoring || !userProfile || !userProfile.subscription) {
+        return;
+    }
 
     const runAIAnalysis = () => {
       const newAlerts: AIAlert[] = [];
       const newInsights: AIInsight[] = [];
 
-      const usagePercentage = subscriptionGuard.getUsagePercentage();
-      const isOverLimit = subscriptionGuard.isOverLimit();
-      const userPlan = userProfile?.subscription?.planId;
+      try {
+          // Só tenta usar o Guard se ele estiver pronto
+          if (subscriptionGuard) {
+              // Seta o perfil atualizado no Guard antes de usar
+              subscriptionGuard.setProfile(userProfile);
 
-      if (userPlan === 'free') {
-        if (isOverLimit) {
-            newAlerts.push({
-                id: 'plan-limit-exceeded',
-                type: 'critical',
-                category: 'system',
-                title: 'Limite de Pedidos Atingido!',
-                message: 'Você alcançou os 200 pedidos/mês do Plano Grátis. Faça upgrade para continuar vendendo sem interrupções.',
-                action: { label: 'Ver Planos', path: '/painel/assinatura' },
-                priority: 11, // Prioridade máxima
-                createdAt: new Date()
-            });
-        } else if (usagePercentage >= 80) {
-            newAlerts.push({
-                id: 'plan-limit-warning',
-                type: 'warning',
-                category: 'optimization',
-                title: 'Limite do Plano Próximo!',
-                message: `Você já utilizou ${usagePercentage.toFixed(0)}% do seu limite de pedidos. Considere um upgrade para não parar suas vendas.`,
-                action: { label: 'Ver Planos', path: '/painel/assinatura' },
-                priority: 8,
-                createdAt: new Date()
-            });
-        }
+              const usagePercentage = subscriptionGuard.getUsagePercentage();
+              const isOverLimit = subscriptionGuard.isOverLimit();
+              const userPlan = userProfile.subscription.planId;
+
+              if (userPlan === 'free') {
+                if (isOverLimit) {
+                    newAlerts.push({
+                        id: 'plan-limit-exceeded',
+                        type: 'critical',
+                        category: 'system',
+                        title: 'Limite de Pedidos Atingido!',
+                        message: 'Você alcançou os 200 pedidos/mês do Plano Grátis. Faça upgrade para continuar vendendo sem interrupções.',
+                        action: { label: 'Ver Planos', path: '/painel/assinatura' },
+                        priority: 11, // Prioridade máxima
+                        createdAt: new Date()
+                    });
+                } else if (usagePercentage >= 80) {
+                    newAlerts.push({
+                        id: 'plan-limit-warning',
+                        type: 'warning',
+                        category: 'optimization',
+                        title: 'Limite do Plano Próximo!',
+                        message: `Você já utilizou ${usagePercentage.toFixed(0)}% do seu limite de pedidos. Considere um upgrade para não parar suas vendas.`,
+                        action: { label: 'Ver Planos', path: '/painel/assinatura' },
+                        priority: 8,
+                        createdAt: new Date()
+                    });
+                }
+              }
+          }
+      } catch (error) {
+          console.warn("AIMonitoring: Erro ao verificar assinatura (ignorando para não crashar):", error);
       }
 
       // 🤖 ANÁLISE 1: Produtos de Produção sem Ficha Técnica

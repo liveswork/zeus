@@ -606,7 +606,7 @@ exports.optimizeAndResizeImage = onObjectFinalized(
 
         } finally {
             fs.unlinkSync(tempFilePath);
-            await bucket.file(filePath).delete();
+          //  await bucket.file(filePath).delete();
         }
         console.log(`Otimização de ${fileName} concluída.`);
         return null;
@@ -1545,108 +1545,108 @@ async function tryAlternativeSearchMethod(title, businessId) {
 
 
 /**
- * NOVA FUNÇÃO
+ * NOVA FUNÇÃO (Corrigida para v2)
  * Cria um pagamento PIX no Mercado Pago para um pedido específico.
  */
-exports.createPixPayment = functions
-  .region("us-central1")
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "Usuário não autenticado.");
+exports.createPixPayment = onCall(async (request) => {
+    // Em v2, 'data' e 'auth' vêm dentro do objeto 'request'
+    const data = request.data;
+    const auth = request.auth;
+
+    if (!auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Usuário não autenticado.");
     }
 
     const { orderId, amount, customerName, customerEmail } = data;
 
     if (!orderId || !amount) {
-      throw new functions.https.HttpsError("invalid-argument", "Faltando orderId ou amount.");
+        throw new functions.https.HttpsError("invalid-argument", "Faltando orderId ou amount.");
     }
 
-    // URL do seu webhook (aponte para a função abaixo)
-    const notificationUrl = "https://SEU_DOMINIO_OU_URL_DA_FUNCAO/mercadoPagoWebhook";
+    // URL do seu webhook (Ajuste para a sua URL real do Cloud Functions)
+    const notificationUrl = `https://us-central1-zeuspdv.cloudfunctions.net/mercadoPagoWebhook`;
 
     const payment_data = {
-      transaction_amount: Number(amount.toFixed(2)),
-      description: `Pedido #${orderId} - ${customerName}`,
-      payment_method_id: "pix",
-      notification_url: notificationUrl,
-      external_reference: orderId, // MUITO IMPORTANTE: Vincula o pagamento ao pedido
-      payer: {
-        email: customerEmail || "nao_informado@foodpdv.com",
-        first_name: customerName || "Cliente",
-      },
+        transaction_amount: Number(amount.toFixed(2)),
+        description: `Pedido #${orderId} - ${customerName}`,
+        payment_method_id: "pix",
+        notification_url: notificationUrl,
+        external_reference: orderId, // Vincula o pagamento ao pedido
+        payer: {
+            email: customerEmail || "nao_informado@foodpdv.com",
+            first_name: customerName || "Cliente",
+        },
     };
 
     try {
-      const payment = await mercadopago.payment.create(payment_data);
+        const payment = await client.payment.create({ body: payment_data });
 
-      const pixData = {
-        paymentId: payment.body.id,
-        qrCodeBase64: payment.body.point_of_interaction.transaction_data.qr_code_base64,
-        qrCode: payment.body.point_of_interaction.transaction_data.qr_code,
-      };
+        const pixData = {
+            paymentId: payment.id,
+            qrCodeBase64: payment.point_of_interaction.transaction_data.qr_code_base64,
+            qrCode: payment.point_of_interaction.transaction_data.qr_code,
+        };
 
-      // Salva os dados do PIX no pedido para referência
-      await admin.firestore().collection("orders").doc(orderId).update({
-        pixPaymentId: pixData.paymentId,
-      });
+        // Salva os dados do PIX no pedido para referência
+        await admin.firestore().collection("orders").doc(orderId).update({
+            pixPaymentId: pixData.paymentId,
+        });
 
-      return pixData;
-    } catch (error: any) {
-      console.error("Erro ao criar PIX Mercado Pago:", error.cause || error.message);
-      throw new functions.https.HttpsError("internal", "Erro ao gerar PIX: " + error.message);
+        return pixData;
+    } catch (error) {
+        console.error("Erro ao criar PIX Mercado Pago:", error);
+        throw new functions.https.HttpsError("internal", "Erro ao gerar PIX: " + error.message);
     }
-  });
+});
 
 /**
- * NOVA FUNÇÃO
+ * NOVA FUNÇÃO (Corrigida para v2)
  * Webhook para receber notificações de pagamento do Mercado Pago.
  */
-exports.mercadoPagoWebhook = functions
-  .region("us-central1")
-  .https.onRequest(async (req, res) => {
+exports.mercadoPagoWebhook = onRequest(async (req, res) => {
     // Responde ao Mercado Pago imediatamente para evitar timeouts
     res.status(200).send("OK");
 
     const { type, data } = req.body;
 
     if (type === "payment") {
-      try {
-        const paymentId = data.id;
-        const payment = await mercadopago.payment.get(paymentId);
+        try {
+            const paymentId = data.id;
+            // Busca o pagamento atualizado
+            const payment = await client.payment.get({ id: paymentId });
 
-        if (payment && payment.body) {
-          const orderId = payment.body.external_reference;
-          const status = payment.body.status;
+            if (payment) {
+                const orderId = payment.external_reference;
+                const status = payment.status;
 
-          if (orderId && status === "approved") {
-            // Pagamento APROVADO!
-            const orderRef = admin.firestore().collection("orders").doc(orderId);
-            
-            // Atualiza o status do pedido para "preparo"
-            await orderRef.update({
-              status: "preparo", // Muda de 'awaiting_payment' para 'preparo'
-              paymentStatus: "paid",
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+                if (orderId && status === "approved") {
+                    // Pagamento APROVADO!
+                    const orderRef = admin.firestore().collection("orders").doc(orderId);
+                    
+                    // Atualiza o status do pedido para "preparo"
+                    await orderRef.update({
+                        status: "preparo", 
+                        paymentStatus: "paid",
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
 
-            console.log(`Pedido ${orderId} atualizado para 'preparo'.`);
-          } else if (orderId && (status === "cancelled" || status === "expired")) {
-            // Pagamento cancelado ou expirado
-             const orderRef = admin.firestore().collection("orders").doc(orderId);
-             await orderRef.update({
-              status: "canceled",
-              paymentStatus: "failed",
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            console.log(`Pedido ${orderId} cancelado.`);
-          }
+                    console.log(`Pedido ${orderId} atualizado para 'preparo'.`);
+                } else if (orderId && (status === "cancelled" || status === "expired")) {
+                    // Pagamento cancelado ou expirado
+                     const orderRef = admin.firestore().collection("orders").doc(orderId);
+                     await orderRef.update({
+                        status: "canceled",
+                        paymentStatus: "failed",
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log(`Pedido ${orderId} cancelado.`);
+                }
+            }
+        } catch (error) {
+            console.error("Erro no webhook:", error);
         }
-      } catch (error) {
-        console.error("Erro no webhook:", error);
-      }
     }
-  });
-
+});
 
   
 exports.checkLowStockAndTriggerNexus = onSchedule('every 4 hours', async (event) => {
@@ -2591,44 +2591,44 @@ exports.logoutWhatsappSession = functions.https.onCall(async (data, context) => 
  * Gera um código de loteria único para um CLIENTE LOCAL (por estabelecimento).
  * Esta função é 'onCall' e deve ser chamada pelo dono do negócio.
  */
-export const generateLocalLotteryCode = functions
-  .region("us-central1") // Verifique sua região
-  .https.onCall(async (data, context) => {
-    // 1. Autenticação: Garante que o usuário (dono do negócio) está logado
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "Você precisa estar logado para executar esta ação."
-      );
+exports.generateLocalLotteryCode = onCall(async (request) => {
+    const data = request.data;
+    const auth = request.auth;
+
+    // 1. Autenticação
+    if (!auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated",
+            "Você precisa estar logado para executar esta ação."
+        );
     }
 
     const { businessId, localCustomerId } = data;
 
     if (!businessId || !localCustomerId) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "businessId e localCustomerId são obrigatórios."
-      );
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "businessId e localCustomerId são obrigatórios."
+        );
     }
 
-    // 2. Autorização (Opcional, mas recomendado):
-    // Verifica se o usuário que chama é o dono do businessId
-    const callerUid = context.auth.uid;
+    // 2. Autorização
+    const callerUid = auth.uid;
     const userDoc = await admin.firestore().collection("users").doc(callerUid).get();
-    if (userDoc.data()?.businessId !== businessId) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "Você não tem permissão para alterar este negócio."
-      );
+    if (userDoc.data()?.businessId !== businessId && userDoc.id !== businessId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para alterar este negócio."
+        );
     }
 
     // 3. Caminho para o cliente local
     const localCustomerRef = admin
-      .firestore()
-      .collection("users")
-      .doc(businessId)
-      .collection("localCustomers")
-      .doc(localCustomerId);
+        .firestore()
+        .collection("users")
+        .doc(businessId)
+        .collection("localCustomers")
+        .doc(localCustomerId);
 
     const localCustomerDoc = await localCustomerRef.get();
     if (!localCustomerDoc.exists) {
@@ -2636,52 +2636,54 @@ export const generateLocalLotteryCode = functions
     }
     
     if (localCustomerDoc.data()?.lotteryCode) {
-      throw new functions.https.HttpsError(
-        "already-exists",
-        "Este cliente já possui um número da sorte neste estabelecimento."
-      );
+        throw new functions.https.HttpsError(
+            "already-exists",
+            "Este cliente já possui um número da sorte neste estabelecimento."
+        );
     }
 
     // 4. Geração de Código Único (LOCAL)
     let uniqueCode = "";
     let isUnique = false;
     const localCustomersCollection = admin
-      .firestore()
-      .collection("users")
-      .doc(businessId)
-      .collection("localCustomers");
+        .firestore()
+        .collection("users")
+        .doc(businessId)
+        .collection("localCustomers");
 
-    while (!isUnique) {
-      uniqueCode = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // Verifica se o código já existe *apenas neste estabelecimento*
-      const snapshot = await localCustomersCollection
-        .where("lotteryCode", "==", uniqueCode)
-        .limit(1)
-        .get();
+    // Loop de segurança para garantir unicidade
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+        uniqueCode = Math.floor(100000 + Math.random() * 900000).toString();
         
-      if (snapshot.empty) {
-        isUnique = true;
-      }
+        const snapshot = await localCustomersCollection
+            .where("lotteryCode", "==", uniqueCode)
+            .limit(1)
+            .get();
+        
+        if (snapshot.empty) {
+            isUnique = true;
+        }
+        attempts++;
     }
     
     // 5. Salvar no Perfil do Cliente LOCAL
     try {
-      await localCustomerRef.update({
-        wantsToParticipateInDraws: true,
-        lotteryCode: uniqueCode,
-      });
+        await localCustomerRef.update({
+            wantsToParticipateInDraws: true,
+            lotteryCode: uniqueCode,
+        });
 
-      return {
-        success: true,
-        message: "Código da sorte gerado com sucesso!",
-        lotteryCode: uniqueCode,
-      };
+        return {
+            success: true,
+            message: "Código da sorte gerado com sucesso!",
+            lotteryCode: uniqueCode,
+        };
     } catch (error) {
-      console.error("Erro ao salvar código no perfil local:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Não foi possível salvar o código do cliente. Tente novamente."
-      );
+        console.error("Erro ao salvar código no perfil local:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "Não foi possível salvar o código do cliente. Tente novamente."
+        );
     }
-  });
+});

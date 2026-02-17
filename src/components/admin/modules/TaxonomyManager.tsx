@@ -147,7 +147,7 @@ export const TaxonomyManager: React.FC = () => {
             <div className="w-1/3 bg-white rounded-lg shadow p-4 flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-bold text-lg flex items-center gap-2">
-                        <Layers className="text-blue-600" /> Categorias
+                        <Layers className="text-blue-600" /> Segmentos de Negócios
                     </h2>
                     <button 
                         onClick={() => { 

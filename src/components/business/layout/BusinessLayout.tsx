@@ -10,7 +10,8 @@ import {
   Home,
   Truck,
   Wallet,
-  Clipboard
+  Clipboard,
+  Palette
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -24,42 +25,43 @@ import { db } from '../../../config/firebase';
 // Mapeamento de Rota: Conecta a "Chave da Feature" com o "Link do Navegador"
 // Isso separa a definição do botão (ícone/nome) do destino dele.
 const PATH_MAPPING: Record<string, string> = {
-  'dashboard': '/painel/dashboard',
-  'bi_dashboard': '/painel/reports',
-  'vendas_pdv': '/painel/pdv',
-  'vendas_mesas': '/painel/tables',
-  'vendas_balcao': '/painel/sales',
-  'vendas_delivery': '/painel/delivery',
-  'caixa_atual': '/painel/cashier',
+  'dashboard':               '/painel/dashboard',
+  'bi_dashboard':            '/painel/reports',
+  'vendas_pdv':              '/painel/pdv',
+  'vendas_mesas':            '/painel/tables',
+  'vendas_balcao':           '/painel/sales',
+  'vendas_delivery':         '/painel/delivery',
+  'caixa_atual':             '/painel/cashier',
+  'financeiro_plano':        '/painel/financial',
   'financeiro_contas_pagar': '/painel/financeiro/contas-a-pagar',
-  'marketing': '/painel/marketing/campanhas',
-  'cadastros_produtos': '/painel/registrations/products',
-  'cadastros_categorias': '/painel/registrations/categories',
-  'cadastros_clientes': '/painel/registrations/customers',
-  'cadastros_fornecedores': '/painel/registrations/suppliers',
-  'cadastros_funcionarios': '/painel/registrations/employees',
-  'cadastros_entregas': '/painel/registrations/delivery-fees',
-  'cadastros_empresa': '/painel/registrations/company',
-  'configuracoes': '/painel/settings',
-  'marketplace_compras': '/painel/marketplace',
-  'extensoes': '/painel/extensoes',
-  'whatsapp_chat': '/painel/whatsapp_chat',
-  'composer': '/painel/composer',
-  'financeiro': '/painel/financeiro',
+  'marketing':               '/painel/marketing/campanhas',
+  'cadastros_produtos':      '/painel/registrations/products',
+  'cadastros_categorias':    '/painel/registrations/categories',
+  'cadastros_clientes':      '/painel/registrations/customers',
+  'cadastros_fornecedores':  '/painel/registrations/suppliers',
+  'cadastros_funcionarios':  '/painel/registrations/employees',
+  'cadastros_entregas':      '/painel/registrations/delivery-fees',
+  'cadastros_empresa':       '/painel/registrations/company',
+  'configuracoes':           '/painel/settings',
+  'marketplace_compras':     '/painel/marketplace',
+  'extensoes':               '/painel/extensoes',
+  'whatsapp_chat':           '/painel/whatsapp_chat',
+  'composer':                '/painel/composer',
+  'financeiro':              '/painel/financeiro',
   // --- Marketing / Foodverse ---
-'marketing_journeys': '/painel/foodverse/jornadas',
-'marketing_events': '/painel/foodverse/eventos',
-'cadastros_essencia': '/painel/foodverse/essencia',
+  'marketing_journeys':      '/painel/foodverse/jornadas',
+  'marketing_events':        '/painel/foodverse/eventos',
+  'cadastros_essencia':      '/painel/foodverse/essencia',
 
 // --- Relatórios ---
-'relatorios': '/painel/reports',
+  'relatorios':              '/painel/reports',
 
 // --- Extensões ---
-'loja_extensoes': '/painel/extensoes',
+  'loja_extensoes':          '/painel/extensoes',
 
 // --- Compras ---
-'compras_ver': '/painel/compras',                 // ou '/painel/compras' (ajuste se tiver index)
-'compras_orcamentos': '/painel/compras/orcamentos', // só se essa rota existir
+  'compras_ver':             '/painel/compras',                 // ou '/painel/compras' (ajuste se tiver index)
+  'compras_orcamentos':      '/painel/compras/orcamentos', // só se essa rota existir
 
 // --- Cadastros ---
 'cadastros_insumos': '/painel/registrations/supplies',
@@ -67,7 +69,10 @@ const PATH_MAPPING: Record<string, string> = {
 'cadastros_taxas_delivery': '/painel/registrations/delivery-fees',
 
 // --- Utilitários / Outros ---
-'recuperador_de_vendas': '/painel/sales/recover' // só se existir; senão crie a rota ou mude o path
+'recuperador_de_vendas': '/painel/sales/recover', // só se existir; senão crie a rota ou mude o path
+
+// ✅ 2. Adicionei a rota no mapeamento (opcional, mas organizado)
+  'loja_personalizar':       '/painel/loja/personalizar'
 
 };
 
@@ -303,6 +308,36 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
               })
           )}
         </nav>
+
+        {/* ✅ 3. NOVA SEÇÃO FIXA: LOJA ONLINE */}
+                {/* Esta seção aparece sempre, independente do banco de dados */}
+                <div className="pt-4 mt-2 border-t border-gray-100">
+                    {isSidebarOpen && (
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                            Sua Loja
+                        </h3>
+                    )}
+                    <Link
+                        to="/painel/loja/personalizar"
+                        className={`
+                            flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative
+                            ${location.pathname.includes('/loja/personalizar')
+                                ? 'bg-purple-50 text-purple-600 font-medium shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }
+                        `}
+                    >
+                        <Palette size={20} className={`${location.pathname.includes('/loja/personalizar') ? 'text-purple-600' : 'text-gray-500'} ${!isSidebarOpen && 'mx-auto'}`} />
+                        {isSidebarOpen && <span className="ml-3 truncate">Aparência</span>}
+                        {!isSidebarOpen && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                                Aparência
+                            </div>
+                        )}
+                    </Link>
+                </div>
+           
+       
 
         {/* Footer do Sidebar */}
         <div className="p-4 border-t border-gray-100">

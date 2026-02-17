@@ -25,7 +25,7 @@ const PublicLayout = React.lazy(() =>
   import('../layout/PublicLayout').then(module => ({ default: module.PublicLayout }))
 );
 const LandingPage = React.lazy(() => 
-  import('../public/LandingPage').then(module => ({ default: module.LandingPage }))
+  import('../public/landing/LandingPage').then(module => ({ default: module.LandingPage }))
 );
 
 // 🟢 OTIMIZAÇÃO: Converti os diretórios públicos para Lazy também (Performance)
