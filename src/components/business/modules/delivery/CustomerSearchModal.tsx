@@ -74,7 +74,7 @@ export const CustomerSearchModal: React.FC<CustomerSearchModalProps> = ({
         setShowCustomerCard(true);
         
         setTimeout(() => {
-          showAlert('Cliente encontrado no ecossistema FoodPDV!', 'success');
+          showAlert('Cliente encontrado no ecossistema Nexxus OS!', 'success');
         }, 500);
       } else {
         // ❌ CLIENTE NÃO ENCONTRADO - CRIAR NOVO NO ECOSSISTEMA

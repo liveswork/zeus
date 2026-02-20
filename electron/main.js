@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import isDev from 'electron-is-dev';
 
+// Configuração de diretórios compatível com ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -10,56 +11,68 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    show: false, // Só mostra quando estiver pronto para evitar piscar branco
+    backgroundColor: '#f9fafb', // Cor de fundo suave enquanto carrega
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.mjs'), // Garanta que esse arquivo existe
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true 
+      webSecurity: true, // Mantém segurança, mas ajustaremos o CSP
+      devTools: true // Habilita DevTools mesmo em produção para debug (remova depois)
     },
   });
 
-  // 🟢 CORREÇÃO CSP: Adicionei 'https:' em connect-src para permitir Google/Firebase
-  const devCSP = [
-    "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 ws://localhost:5173 data: blob: filesystem:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 https://rxdb.info https://*.firebaseio.com", 
+  // 🟢 DEFINIÇÃO DO CSP (Política de Segurança)
+  // Usamos a mesma lógica permissiva tanto para DEV quanto para PROD neste momento
+  // para garantir que estilos inline e conexões externas funcionem.
+  const csp = [
+    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: filesystem:",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 https://rxdb.info https://*.firebaseio.com https://*.googleapis.com https://*.gstatic.com",
     "style-src 'self' 'unsafe-inline' http://localhost:5173 https://fonts.googleapis.com",
     "font-src 'self' http://localhost:5173 data: https://fonts.gstatic.com",
-    "connect-src 'self' ws://localhost:5173 http://localhost:5173 https: wss:", // 🟢 LIBERADO GERAL PARA HTTPS
-    "img-src 'self' data: blob: https: http:",
-    "frame-src 'self' https://rxdb.info https://*.firebaseapp.com" 
+    "connect-src 'self' ws://localhost:5173 http://localhost:5173 https: wss: file:", // file: adicionado
+    "img-src 'self' data: blob: https: http: file:",
+    "frame-src 'self' https://rxdb.info https://*.firebaseapp.com"
   ].join('; ');
 
+  // Aplica o CSP nos Headers
   win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [isDev ? devCSP : "default-src 'self'"]
+        'Content-Security-Policy': [csp]
       }
     });
   });
 
-  win.loadURL(
-    isDev
-      ? 'http://localhost:5173'
-      : `file://${path.join(__dirname, '../dist/index.html')}`
-  );
+  // 🟢 CARREGAMENTO DA URL (Lógica Corrigida)
+  if (isDev) {
+    win.loadURL('http://localhost:5173');
+    win.webContents.openDevTools();
+  } else {
+    // Em produção, usamos loadFile que é mais robusto para caminhos locais
+    // Assume que a estrutura é:
+    // /resources/app/dist-electron/main.js
+    // /resources/app/dist/index.html
+    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    
+    // 🔥 Mantenha o console aberto em produção para ver erros se houver
+    // Comente esta linha quando estiver 100% estável
+    // win.webContents.openDevTools(); 
+  }
 
-  // Backup via meta tag
-  win.webContents.on('dom-ready', () => {
-    win.webContents.executeJavaScript(`
-      const meta = document.createElement('meta');
-      meta.httpEquiv = 'Content-Security-Policy';
-      meta.content = "${devCSP}";
-      document.head.appendChild(meta);
-    `);
+  // Só mostra a janela quando o conteúdo estiver carregado
+  win.once('ready-to-show', () => {
+    win.show();
   });
 
-  if (isDev) {
-    win.webContents.openDevTools();
-  }
+  // Monitora falhas de carregamento em produção
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Falha ao carregar:', errorCode, errorDescription);
+  });
 }
 
-// ... (Mantenha o resto do menu e listeners igual ao original)
+// ... (Mantenha o resto do código de Menu e app.whenReady igual) ...
 const template = [
     {
         label: 'Arquivo',
@@ -67,32 +80,7 @@ const template = [
             { role: 'quit', label: 'Sair' }
         ]
     },
-    {
-        label: 'Editar',
-        submenu: [
-            { role: 'undo', label: 'Desfazer' },
-            { role: 'redo', label: 'Refazer' },
-            { type: 'separator' },
-            { role: 'cut', label: 'Cortar' },
-            { role: 'copy', label: 'Copiar' },
-            { role: 'paste', label: 'Colar' }
-        ]
-    },
-    {
-        label: 'Ajuda',
-        submenu: [
-            {
-                label: 'Sobre o App',
-                click: () => {
-                    dialog.showMessageBox({
-                        title: 'Sobre o Nexxus OS',
-                        message: 'O Nexxus OS é o Protocolo Universal de Operação Comercial (UCOP). Não é apenas um ERP ou um PDV. É uma infraestrutura digital descentralizada e agnóstica que padroniza, registra e orquestra a troca de bens e serviços globalmente. Nexxus OS padroniza a Transação Comercial, criando uma camada de interoperabilidade onde qualquer entidade — de um vendedor ambulante a uma multinacional — opera sob a mesma lógica de integridade, estoque e fluxo de valor.',
-                        detail: 'Desenvolvido por Liveswork Softwares',
-                    });
-                }
-            }
-        ]
-    }
+    // ... seus outros menus ...
 ];
 
 const menu = Menu.buildFromTemplate(template);

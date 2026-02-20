@@ -4,7 +4,7 @@ import { Order, PurchaseOrder } from '../types';
 
 interface PrintData {
   order: Order | PurchaseOrder;
-  type: 'kitchen' | 'customer' | 'delivery' | 'purchaseOrder';
+  type: 'kitchen' | 'customer' | 'delivery' | 'purchaseOrder' | 'retailReceipt' | 'retailCounter' | 'retailCustomer';
   format?: 'a4' | '80mm' | '58mm';
 }
 
@@ -20,7 +20,7 @@ const PrintContext = createContext<PrintContextType | null>(null);
 export const usePrint = () => {
   const context = useContext(PrintContext);
   if (!context) {
-    throw new Error('usePrint must be used within a PrintProvider');
+    throw new Error('O comando usePrint deve ser usado dentro de um PrintProvider.');
   }
   return context;
 };

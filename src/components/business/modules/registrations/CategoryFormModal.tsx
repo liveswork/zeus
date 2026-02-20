@@ -1,5 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import { Tag, Save, Coffee, Utensils, Pizza, IceCream, Wine, Sandwich, Salad, Cake, Fish, Beef, Soup, Apple, Milk, Heading as Bread, Cookie, Cherry, Grape, Carrot } from 'lucide-react';
+// src\components\business\modules\registrations\CategoryFormModal.tsx
+
+import React, { useState, useEffect, useMemo } from 'react';
+
+// Food icons
+import {
+  Tag,
+  Utensils,
+  Coffee,
+  Pizza,
+  IceCream,
+  Wine,
+  Sandwich,
+  Salad,
+  Cake,
+  Fish,
+  Beef,
+  Soup,
+  Apple,
+  Milk,
+  Heading as Bread,
+  Cookie,
+  Cherry,
+  Grape,
+  Carrot
+} from 'lucide-react';
+
+// Retail icons
+import {
+  Store,
+  ShoppingBag,
+  Shirt,
+  Package,
+  Laptop,
+  Smartphone,
+  Watch,
+  Sofa,
+  Baby,
+  Book,
+  Brush,
+  Wrench,
+  Dumbbell
+} from 'lucide-react';
+
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../../config/firebase';
 import { useBusiness } from '../../../../contexts/BusinessContext';
@@ -13,7 +55,9 @@ interface CategoryFormModalProps {
   initialData?: any;
 }
 
-const iconOptions = [
+const normalizeType = (t?: any) => (t ? String(t) : 'food');
+
+const iconOptionsFood = [
   { name: 'Utensils', icon: Utensils, label: 'Pratos Principais' },
   { name: 'Coffee', icon: Coffee, label: 'Bebidas Quentes' },
   { name: 'Wine', icon: Wine, label: 'Bebidas Alcoólicas' },
@@ -35,41 +79,60 @@ const iconOptions = [
   { name: 'Tag', icon: Tag, label: 'Outros' }
 ];
 
-export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
-  isOpen,
-  onClose,
-  initialData
-}) => {
+const iconOptionsRetail = [
+  { name: 'Store', icon: Store, label: 'Loja' },
+  { name: 'ShoppingBag', icon: ShoppingBag, label: 'Acessórios' },
+  { name: 'Shirt', icon: Shirt, label: 'Roupas' },
+  { name: 'Package', icon: Package, label: 'Embalagens' },
+  { name: 'Laptop', icon: Laptop, label: 'Eletrônicos' },
+  { name: 'Smartphone', icon: Smartphone, label: 'Celulares' },
+  { name: 'Watch', icon: Watch, label: 'Relógios' },
+  { name: 'Sofa', icon: Sofa, label: 'Casa' },
+  { name: 'Baby', icon: Baby, label: 'Infantil' },
+  { name: 'Book', icon: Book, label: 'Livros' },
+  { name: 'Brush', icon: Brush, label: 'Beleza' },
+  { name: 'Wrench', icon: Wrench, label: 'Ferramentas' },
+  { name: 'Dumbbell', icon: Dumbbell, label: 'Esportes' },
+  { name: 'Tag', icon: Tag, label: 'Outros' }
+];
+
+export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, onClose, initialData }) => {
   const { showAlert } = useUI();
-  const { businessId, categories } = useBusiness();
+  const { businessId, categories, businessType } = useBusiness() as any;
   const [loading, setLoading] = useState(false);
-  
+
+  const iconOptions = useMemo(() => {
+    return normalizeType(businessType) === 'retail' ? iconOptionsRetail : iconOptionsFood;
+  }, [businessType]);
+
+  const defaultIconName = normalizeType(businessType) === 'retail' ? 'Store' : 'Utensils';
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    icon: 'Utensils',
+    icon: defaultIconName,
     isActive: true
   });
 
   useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setFormData({
-          name: initialData.name || '',
-          description: initialData.description || '',
-          icon: initialData.icon || 'Utensils',
-          isActive: initialData.isActive !== undefined ? initialData.isActive : true
-        });
-      } else {
-        setFormData({
-          name: '',
-          description: '',
-          icon: 'Utensils',
-          isActive: true
-        });
-      }
+    if (!isOpen) return;
+
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        description: initialData.description || '',
+        icon: initialData.icon || defaultIconName,
+        isActive: initialData.isActive !== undefined ? initialData.isActive : true
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        icon: defaultIconName,
+        isActive: true
+      });
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, defaultIconName]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -85,14 +148,16 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       showAlert('Nome da categoria é obrigatório', 'error');
       return;
     }
 
-    const existingCategory = categories.find(cat => 
-      cat.name.toLowerCase() === formData.name.toLowerCase() && 
+    // ✅ valida duplicidade dentro do MESMO businessType
+    const existingCategory = categories.find((cat: any) =>
+      normalizeType(cat.businessType) === normalizeType(businessType) &&
+      cat.name?.toLowerCase() === formData.name.toLowerCase() &&
       cat.id !== initialData?.id
     );
 
@@ -107,9 +172,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         name: formData.name.trim(),
         description: formData.description.trim(),
         icon: formData.icon,
-        color: '#6B7280', // Cor padrão elegante
+        color: '#6B7280',
         isActive: formData.isActive,
         businessId,
+        businessType: businessType || 'food', // ✅ separa Food x Retail
         sortOrder: initialData?.sortOrder || categories.length,
         ...(initialData ? { updatedAt: serverTimestamp() } : { createdAt: serverTimestamp() })
       };
@@ -122,7 +188,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         await addDoc(collection(db, 'categories'), categoryData);
         showAlert('Categoria criada com sucesso!');
       }
-      
+
       onClose();
     } catch (error) {
       console.error('Erro ao salvar categoria:', error);
@@ -132,22 +198,17 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
     }
   };
 
-  const selectedIconData = iconOptions.find(opt => opt.name === formData.icon);
+  const selectedIconData = iconOptions.find(opt => opt.name === formData.icon) || iconOptions[0];
   const SelectedIcon = selectedIconData?.icon || Tag;
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
-      title={initialData ? 'Editar Categoria' : 'Nova Categoria'} 
-      size="4xl"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={initialData ? 'Editar Categoria' : 'Nova Categoria'} size="4xl">
       <div className="grid grid-cols-2 gap-16 h-96">
-        {/* Coluna Esquerda - Formulário */}
+        {/* Coluna Esquerda */}
         <div className="space-y-8">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Informações da Categoria</h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <FormField label="Nome da Categoria">
                 <input
@@ -155,7 +216,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-                  placeholder="Ex: Bebidas, Pratos Principais, Sobremesas"
+                  placeholder={normalizeType(businessType) === 'retail' ? 'Ex: Roupas, Eletrônicos, Beleza' : 'Ex: Bebidas, Pratos, Sobremesas'}
                   required
                 />
               </FormField>
@@ -179,61 +240,46 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                   onChange={handleChange}
                   className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                 />
-                <label className="text-sm text-gray-700">
-                  Categoria ativa
-                </label>
+                <label className="text-sm text-gray-700">Categoria ativa</label>
               </div>
             </form>
           </div>
 
-          {/* Botões de ação */}
+          {/* Ações */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
+            <button type="button" onClick={onClose} disabled={loading} className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors">
               Cancelar
             </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-            >
-              {loading ? 'Salvando...' : (initialData ? 'Atualizar' : 'Criar')}
+            <button onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+              {loading ? 'Salvando...' : initialData ? 'Atualizar' : 'Criar'}
             </button>
           </div>
         </div>
 
-        {/* Coluna Direita - Seletor de Ícones */}
+        {/* Coluna Direita */}
         <div className="space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Escolha o Ícone</h3>
-            
-            {/* Preview do ícone selecionado */}
+
             <div className="text-center mb-8 p-6 bg-gray-50 border border-gray-200">
               <div className="w-16 h-16 mx-auto mb-3 bg-gray-700 flex items-center justify-center">
                 <SelectedIcon size={28} className="text-white" />
               </div>
               <p className="text-sm font-medium text-gray-700">{selectedIconData?.label}</p>
             </div>
-            
-            {/* Grid de ícones - 6 colunas x 4 linhas = 24 ícones sem scroll */}
+
             <div className="grid grid-cols-6 gap-2">
               {iconOptions.slice(0, 18).map(option => {
                 const IconComponent = option.icon;
                 const isSelected = formData.icon === option.name;
-                
+
                 return (
                   <button
                     key={option.name}
                     type="button"
                     onClick={() => handleIconSelect(option.name)}
                     className={`aspect-square p-3 border transition-all duration-200 ${
-                      isSelected 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                      isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
                     }`}
                     title={option.label}
                   >
@@ -242,6 +288,12 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 );
               })}
             </div>
+
+            {iconOptions.length > 18 && (
+              <p className="text-xs text-gray-400 mt-3">
+                Dica: se precisar de mais ícones, adicione no array iconOptionsRetail/Food.
+              </p>
+            )}
           </div>
         </div>
       </div>

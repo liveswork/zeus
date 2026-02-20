@@ -10,7 +10,7 @@ import { DashboardManager } from './modules/DashboardManager';
 import { SalesManager } from './food/modules/balcao/SalesManager';
 import { CashierManager } from './modules/CashierManager';
 import { TableManager } from './food/modules/table/TableManager';
-import { PDVManager } from './modules/PDVManager';
+import { RetailPDVManager } from './retail/modules/pdv/RetailPDVManager';
 import { DeliveryManager } from './modules/DeliveryManager';
 import { CampaignManager } from './modules/marketing/CampaignManager';
 import { CreatorStudio } from './modules/composer/CreatorStudio';
@@ -39,6 +39,10 @@ const StoreAppearance = React.lazy(() =>
   import('./modules/settings/StoreAppearance').then(module => ({ default: module.StoreAppearance }))
 );
 
+const ProductsManager = React.lazy(() => 
+  import('./modules/ProductsManager').then(module => ({ default: module.ProductsManager }))
+);
+
 
 export const BusinessApp: React.FC = () => {
   useAuth();
@@ -62,7 +66,7 @@ export const BusinessApp: React.FC = () => {
           <Route path="sales" element={<SalesManager />} />
           <Route path="cashier" element={<CashierManager />} />
           <Route path="tables" element={<TableManager />} />
-          <Route path="pdv" element={<PDVManager />} />
+          <Route path="pdv" element={<RetailPDVManager />} />
           <Route path="delivery" element={<DeliveryManager />} />
           <Route path="marketing/campanhas" element={<CampaignManager />} />
           <Route path="composer" element={<CreatorStudio />} />
@@ -73,6 +77,7 @@ export const BusinessApp: React.FC = () => {
           <Route path="extensoes" element={<ExtensionStore />} />
           <Route path="settings" element={<SettingsManager />} />
           <Route path="financial" element={<FinancialPage />} />
+          <Route path="registrations/products" element={<ProductsManager />} />
           
         {/* ✅ 2. ADICIONE ESTA NOVA ROTA */}
           {/* Isso habilita o link: nexus.app/#/painel/loja/personalizar */}

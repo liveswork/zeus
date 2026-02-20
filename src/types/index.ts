@@ -107,6 +107,11 @@ export interface Product {
   };
   displayInCatalog: boolean;
   showInCatalog: boolean;
+  physicalOnly: boolean;       // mostrar só na loja física
+  isHidden: boolean; 
+  isPreorder: boolean;         // Pré-Venda?
+  hideWhenOutOfStock: boolean; // sem estoque => ocultar
+  isSponsored: boolean;        // patrocinado
   allowCombination: boolean;
   recipe?: RecipeItem[];
   variants?: ProductVariant[];

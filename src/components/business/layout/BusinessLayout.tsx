@@ -229,7 +229,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
         <div className="h-16 flex items-center justify-center border-b border-gray-100 px-4">
           {isSidebarOpen ? (
             <h1 className="text-2xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              NEXXUS OS
+              yndex
             </h1>
           ) : (
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">

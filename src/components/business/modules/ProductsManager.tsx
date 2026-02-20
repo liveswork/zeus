@@ -1,22 +1,30 @@
 import React from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-
-// Importa os gerenciadores específicos que você separou
-import { FoodProductsManager } from '../food/modules/products/FoodProductsManager'; // O seu antigo renomeado
-import { RetailProductsManager } from '../retail/modules/products/RetailProductsManager'; // O novo que criei acima
+import { RetailProductsManager } from '../retail/modules/products/RetailProductsManager';
+import { FoodProductsManager } from '../food/modules/products/FoodProductsManager';
 
 export const ProductsManager: React.FC = () => {
     const { userProfile } = useAuth();
+    
+    // Obtém o tipo do negócio
     const businessType = userProfile?.businessProfile?.type || 'generic';
+    
+    // Lista de tipos de varejo (adicionei variações comuns)
+    const retailTypes = [
+        'retail', 'varejo', 'fashion', 'moda', 'clothing', 
+        'store', 'loja', 'otica', 'construction', 'cosmeticos',
+        'eletronicos', 'fitness', 'fab_fitness' // Adicione variações específicas se houver
+    ];
 
-    // Lista de tipos de varejo
-    const retailTypes = ['retail', 'fashion', 'otica', 'construction', 'varejo', 'loja_roupas', 'vestuario'];
+    // DEBUG: Veja no console do navegador o que está sendo impresso
+    console.log("ProductsManager: Tipo de Negócio Detectado:", businessType);
+    console.log("É Retail?", retailTypes.includes(businessType));
 
-    // Se for varejo, carrega o painel de grade e estoque
+    // Verifica se o tipo do negócio está na lista de Retail
     if (retailTypes.includes(businessType)) {
         return <RetailProductsManager />;
     }
 
-    // Se for comida (ou padrão), carrega o painel de receitas e cardápio
+    // Se não for Retail, assume Food (padrão)
     return <FoodProductsManager />;
 };

@@ -65,7 +65,9 @@ function App() {
                       {/* O Shell é carregado aqui */}
                       <HashRouter>
                         <Suspense fallback={<BootScreen message="Carregando Kernel..." />}>
-                          <SystemShell />
+                        {/* CORREÇÃO AQUI: O AppRouter deve ser renderizado */}
+                           {/* Se o SystemShell for o layout global, ele deve envolver o AppRouter ou estar dentro do PublicLayout/PanelRouter <SystemShell />  */}
+                         <AppRouter /> 
                         </Suspense>
                       </HashRouter>
 

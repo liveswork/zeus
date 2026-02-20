@@ -5,6 +5,11 @@ import { CustomerPrint } from './templates/CustomerPrint';
 import { DeliveryPrint } from './templates/DeliveryPrint';
 import { PurchaseOrderPrint } from './templates/PurchaseOrderPrint';
 
+// ✅ NOVOS templates PDV/Retail
+import { RetailReceiptPrint } from './templates/RetailReceiptPrint';
+import { RetailCounterPrint } from './templates/RetailCounterPrint';
+import { RetailCustomerPrint} from './templates/RetailCustomerPrint';
+
 export const PrintManager: React.FC = () => {
   const { printData, printComponentRef } = usePrint();
 
@@ -22,6 +27,14 @@ export const PrintManager: React.FC = () => {
         return <DeliveryPrint order={printData.order} format={printData.format} />;
       case 'purchaseOrder':
         return <PurchaseOrderPrint order={printData.order} format={printData.format} />;
+      case 'retailReceipt':
+        return <RetailReceiptPrint order={printData.order as Order} format={printData.format} />;
+
+      case 'retailCustomer':
+        return <RetailCustomerPrint order={printData.order as Order} format={printData.format} />;
+
+      case 'retailCounter':
+        return <RetailCounterPrint order={printData.order as Order} format={printData.format} />;
       default:
         return null;
     }
@@ -35,7 +48,7 @@ export const PrintManager: React.FC = () => {
           <p className="text-sm">Preparando impressão: {printData.type}</p>
         </div>
       )}
-      
+
       {/* Componente de impressão oculto */}
       <div style={{ display: 'none' }}>
         <div ref={printComponentRef}>

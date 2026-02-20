@@ -6,6 +6,7 @@ import { Product, Supply, Sale, Supplier, Table, Order, DeliveryFee, Customer, C
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 
 interface BusinessContextType {
+  businessType: 'food' | 'retail' | string;
   products: Product[];
   supplies: Supply[];
   categories: Category[];
@@ -66,6 +67,8 @@ export const BusinessProvider: React.FC<BusinessProviderProps> = ({ children }) 
   const [loading, setLoading] = useState(true);
 
   const businessId = userProfile?.businessId || userProfile?.restaurantId || null;
+
+  const businessType = (userProfile as any)?.businessProfile?.type || 'food';
 
   useEffect(() => {
     if (!businessId) {
@@ -402,6 +405,7 @@ export const BusinessProvider: React.FC<BusinessProviderProps> = ({ children }) 
     loyaltyRewards,
     loyaltySettings,
     businessId,
+    businessType,
     loading,
     refreshData,
     onSaveProduct,
