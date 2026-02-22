@@ -26,15 +26,20 @@ import {
   ShoppingBag,
   Megaphone,
   PackageSearch,
+  Sparkles, // ✅ IA
 } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 import imageCompression from 'browser-image-compression';
 
+// ✅ Firebase Functions (IA)
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
 import { Product } from '../../../../../../types';
 import { Modal } from '../../../../../../components/ui/Modal';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { LabelDesigner } from '../../labels/LabelDesigner';
+import { LabelManager } from '../../labels/LabelManager';
 
 import { useProductForm } from '../../../../../../hooks/useProductForm';
 import { useBusiness } from '../../../../../../contexts/BusinessContext';
@@ -74,6 +79,9 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
   const [relatedSearch, setRelatedSearch] = useState('');
   const [relatedPreviewOpen, setRelatedPreviewOpen] = useState(false);
 
+  // ✅ IA
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
   const images: string[] = Array.isArray((formData as any).images) ? ((formData as any).images as string[]) : [];
   const variants: RetailVariant[] = Array.isArray((formData as any).variants)
     ? (((formData as any).variants as RetailVariant[]) ?? [])
@@ -105,10 +113,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
   const subcategoryId: string = String((formData as any)?.subcategoryId ?? '');
 
   const activeCategories = useMemo(() => categories.filter((c) => c.isActive !== false), [categories]);
-  const activeSubcategories = useMemo(
-    () => subcategories.filter((s) => s.isActive !== false),
-    [subcategories]
-  );
+  const activeSubcategories = useMemo(() => subcategories.filter((s) => s.isActive !== false), [subcategories]);
 
   const subcategoriesForCategory = useMemo(() => {
     if (!categoryId) return activeSubcategories;
@@ -141,6 +146,52 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ helper de alerta (mantém compatibilidade caso você já tenha um showAlert global no app)
+  const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const anyWin = window as any;
+    if (typeof anyWin?.showAlert === 'function') return anyWin.showAlert(message, type);
+    if (type === 'error') console.error(message);
+    else console.log(message);
+    // fallback simples:
+    if (typeof anyWin?.toast === 'function') return anyWin.toast(message, type);
+    try {
+      alert(message);
+    } catch {
+      /* noop */
+    }
+  };
+
+  // ✅ IA: gerar descrições com Cloud Function
+  const handleGenerateWithAI = async () => {
+    if (!v.name) {
+      return showAlert('Introduza o nome do produto primeiro!', 'error');
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const functions = getFunctions();
+      const generateContent = httpsCallable(functions, 'generateProductContent');
+
+      const result = await generateContent({
+        name: v.name,
+        category: getCategoryName(categoryId),
+        attributes: v.attributes,
+      });
+
+      const { shortDescription, description } = (result.data as any) ?? {};
+
+      if (typeof shortDescription === 'string') handleChange('shortDescription' as any, shortDescription);
+      if (typeof description === 'string') handleChange('description' as any, description);
+
+      showAlert('Descrição gerada com sucesso!', 'success');
+    } catch (error) {
+      console.error(error);
+      showAlert('Erro ao contactar a inteligência artificial.', 'error');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   const processImage = async (file: File) => {
     const options = { maxSizeMB: 1, maxWidthOrHeight: 1280, useWebWorker: false as const };
@@ -544,20 +595,37 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                     </FormField>
                   </div>
 
+                  {/* ✅ Breve Descrição com botão de IA */}
                   <FormField label="Breve Descrição">
-                    <textarea
-                      className="w-full border p-2.5 rounded-lg h-20 resize-none text-sm"
-                      value={v.shortDescription}
-                      onChange={(e) => handleChange('shortDescription' as any, e.target.value)}
-                    />
+                    <div className="relative">
+                      <textarea
+                        className="w-full border p-2.5 rounded-lg h-20 resize-none text-sm pr-10"
+                        value={v.shortDescription}
+                        onChange={(e) => handleChange('shortDescription' as any, e.target.value)}
+                        placeholder="A IA pode gerar isto para si..."
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGenerateWithAI}
+                        disabled={isGeneratingAI}
+                        className="absolute right-2 top-2 p-1.5 bg-purple-50 text-purple-600 rounded-md hover:bg-purple-100 transition-colors disabled:opacity-50"
+                        title="Gerar com IA"
+                      >
+                        {isGeneratingAI ? <Loader className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                      </button>
+                    </div>
                   </FormField>
 
                   <FormField label="Descrição Completa">
-                    <textarea
-                      className="w-full border p-2.5 rounded-lg h-32 text-sm"
-                      value={v.description}
-                      onChange={(e) => handleChange('description', e.target.value)}
-                    />
+                    <div className="relative">
+                      <textarea
+                        className="w-full border p-2.5 rounded-lg h-32 text-sm"
+                        value={v.description}
+                        onChange={(e) => handleChange('description', e.target.value)}
+                        placeholder="Destaque as qualidades do produto..."
+                      />
+                      {/* opcional: você pode duplicar o botão aqui, se quiser */}
+                    </div>
                   </FormField>
                 </div>
               </div>
@@ -763,9 +831,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                         <button
                           type="button"
                           className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                          onClick={() =>
-                            handleChange('attributes' as any, [...v.attributes, { name: '', options: '' }])
-                          }
+                          onClick={() => handleChange('attributes' as any, [...v.attributes, { name: '', options: '' }])}
                         >
                           + Adicionar
                         </button>
@@ -812,10 +878,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                                   type="button"
                                   className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-sm flex items-center gap-1"
                                   onClick={() =>
-                                    handleChange(
-                                      'attributes' as any,
-                                      v.attributes.filter((_: any, i: number) => i !== idx)
-                                    )
+                                    handleChange('attributes' as any, v.attributes.filter((_: any, i: number) => i !== idx))
                                   }
                                 >
                                   <Trash2 size={16} /> Remover
@@ -849,9 +912,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                             <div className="text-sm font-bold text-gray-800">
                               {visibility.isActive ? 'Ativo' : 'Inativo'}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Inativo não deve ser vendido nem exibido.
-                            </div>
+                            <div className="text-xs text-gray-500">Inativo não deve ser vendido nem exibido.</div>
                           </div>
                         </div>
                       </FormField>
@@ -945,7 +1006,8 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                               {visibility.hideWhenOutOfStock ? 'Oculta quando estoque = 0' : 'Permite sem estoque'}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Catálogo deve filtrar no frontend: se <b>hideWhenOutOfStock</b> e <b>stockQuantity &lt;= 0</b>, não renderiza.
+                              Catálogo deve filtrar no frontend: se <b>hideWhenOutOfStock</b> e{' '}
+                              <b>stockQuantity &lt;= 0</b>, não renderiza.
                             </div>
                           </div>
                         </div>
@@ -1019,10 +1081,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                           ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {relatedSelectedProducts.map((p: any) => (
-                                <div
-                                  key={p.id}
-                                  className="flex items-center gap-3 border rounded-lg p-2 bg-gray-50"
-                                >
+                                <div key={p.id} className="flex items-center gap-3 border rounded-lg p-2 bg-gray-50">
                                   <div className="w-10 h-10 rounded bg-white border flex items-center justify-center overflow-hidden">
                                     <img
                                       src={String(p.imageUrl ?? (Array.isArray(p.images) ? p.images?.[0] : '') ?? '')}
@@ -1074,9 +1133,7 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
                             <ul className="divide-y">
                               {productsForRelatedPicker.slice(0, 200).map((p: any) => {
                                 const selected = relatedProductIds.includes(p.id);
-                                const thumb = String(
-                                  p.imageUrl ?? (Array.isArray(p.images) ? p.images?.[0] : '') ?? ''
-                                );
+                                const thumb = String(p.imageUrl ?? (Array.isArray(p.images) ? p.images?.[0] : '') ?? '');
 
                                 return (
                                   <li key={p.id}>
@@ -1292,17 +1349,15 @@ export const RetailProductForm: React.FC<Props> = ({ initialData, onClose }) => 
         </div>
       </div>
 
+      {/* MODAL DE ETIQUETAS - SINCRONIZADO */}
       {showLabelDesigner && canOpenLabels && (
         <Modal
           isOpen={showLabelDesigner}
           onClose={() => setShowLabelDesigner(false)}
-          title={`Etiquetas: ${(formData as any)?.name ?? initialData?.name ?? ''}`}
-          maxWidth="max-w-[95vw]"
+          title={`Etiquetas: ${v.name}`}
+          size="5xl"
         >
-          <LabelDesigner
-            product={{ ...(initialData as any), ...(formData as any) } as Product}
-            onClose={() => setShowLabelDesigner(false)}
-          />
+          <LabelManager product={{ ...initialData, ...formData } as Product} onClose={() => setShowLabelDesigner(false)} />
         </Modal>
       )}
     </>

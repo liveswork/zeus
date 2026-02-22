@@ -1,6 +1,6 @@
 // ✅ IMPORTAÇÕES CORRETAS - Use SDK v2 com importação do v1 para HttpsError
 const functions = require("firebase-functions"); // SDK v1 para HttpsError
-const { onRequest, onCall } = require("firebase-functions/v2/https");
+const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
@@ -8,6 +8,8 @@ const { defineSecret } = require("firebase-functions/params");
 const Papa = require('papaparse');
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { Client, LocalAuth } = require("whatsapp-web.js");
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // --- Firebase Admin & Configuration ---
 const admin = require("firebase-admin");
@@ -606,7 +608,7 @@ exports.optimizeAndResizeImage = onObjectFinalized(
 
         } finally {
             fs.unlinkSync(tempFilePath);
-          //  await bucket.file(filePath).delete();
+            //  await bucket.file(filePath).delete();
         }
         console.log(`Otimização de ${fileName} concluída.`);
         return null;
@@ -1622,10 +1624,10 @@ exports.mercadoPagoWebhook = onRequest(async (req, res) => {
                 if (orderId && status === "approved") {
                     // Pagamento APROVADO!
                     const orderRef = admin.firestore().collection("orders").doc(orderId);
-                    
+
                     // Atualiza o status do pedido para "preparo"
                     await orderRef.update({
-                        status: "preparo", 
+                        status: "preparo",
                         paymentStatus: "paid",
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     });
@@ -1633,8 +1635,8 @@ exports.mercadoPagoWebhook = onRequest(async (req, res) => {
                     console.log(`Pedido ${orderId} atualizado para 'preparo'.`);
                 } else if (orderId && (status === "cancelled" || status === "expired")) {
                     // Pagamento cancelado ou expirado
-                     const orderRef = admin.firestore().collection("orders").doc(orderId);
-                     await orderRef.update({
+                    const orderRef = admin.firestore().collection("orders").doc(orderId);
+                    await orderRef.update({
                         status: "canceled",
                         paymentStatus: "failed",
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1648,7 +1650,7 @@ exports.mercadoPagoWebhook = onRequest(async (req, res) => {
     }
 });
 
-  
+
 exports.checkLowStockAndTriggerNexus = onSchedule('every 4 hours', async (event) => {
     functions.logger.log("Executando Nexus v2: Verificação de Estoque e Leilão de Ofertas...");
     const db = admin.firestore();
@@ -2634,7 +2636,7 @@ exports.generateLocalLotteryCode = onCall(async (request) => {
     if (!localCustomerDoc.exists) {
         throw new functions.https.HttpsError("not-found", "Cliente local não encontrado.");
     }
-    
+
     if (localCustomerDoc.data()?.lotteryCode) {
         throw new functions.https.HttpsError(
             "already-exists",
@@ -2655,18 +2657,18 @@ exports.generateLocalLotteryCode = onCall(async (request) => {
     let attempts = 0;
     while (!isUnique && attempts < 10) {
         uniqueCode = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         const snapshot = await localCustomersCollection
             .where("lotteryCode", "==", uniqueCode)
             .limit(1)
             .get();
-        
+
         if (snapshot.empty) {
             isUnique = true;
         }
         attempts++;
     }
-    
+
     // 5. Salvar no Perfil do Cliente LOCAL
     try {
         await localCustomerRef.update({
@@ -2687,3 +2689,47 @@ exports.generateLocalLotteryCode = onCall(async (request) => {
         );
     }
 });
+
+exports.generateProductContent = onCall(
+  {
+    secrets: ["GEMINI_API_KEY"],
+    cors: true,
+    region: "us-central1",
+  },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Acesso negado.");
+
+    const { name, category, attributes } = request.data;
+
+    try {
+      const { GoogleGenerativeAI } = require("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+      // ✅ use alias "latest" em vez do "gemini-1.5-flash"
+      const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+const prompt = `
+      haja como um especialista em e-commerce e SEO, Com doutorado em havard, especialista e colocar negocios na primeira página do google. 
+      Gera uma descrição para o produto: "${name}", implementada de Tecnicas avançadas de SEO.
+      Categoria: ${category || 'Geral'}.
+      Atributos: ${JSON.stringify(attributes || [])}.
+
+Responda APENAS com JSON puro, sem markdown, sem comentários, sem texto extra:
+{"shortDescription":"...","description":"..."}
+`.trim();
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().replace(/```json|```/g, "").trim();
+
+      // ✅ tenta pegar o primeiro bloco JSON {...}
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("A IA não retornou um JSON válido.");
+
+      return JSON.parse(match[0]);
+    } catch (error) {
+      console.error("ERRO DETALHADO NO BACKEND:", error);
+      throw new HttpsError("internal", error?.message || "Erro interno");
+    }
+  }
+);

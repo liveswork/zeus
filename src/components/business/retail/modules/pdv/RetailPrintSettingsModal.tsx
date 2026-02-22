@@ -9,6 +9,8 @@ type PrintFormat = '80mm' | '58mm' | 'a4';
 export type RetailPdvPrintSettings = {
   enabled: boolean;
 
+  allowNegativeStock: boolean;
+
   customerReceipt: {
     enabled: boolean;
     copies: number;      // 0..5
@@ -24,6 +26,7 @@ export type RetailPdvPrintSettings = {
 
 const DEFAULT_SETTINGS: RetailPdvPrintSettings = {
   enabled: true,
+  allowNegativeStock: false,
   customerReceipt: { enabled: true, copies: 1, format: '80mm' },
   counterReceipt: { enabled: true, copies: 1, format: '80mm' },
 };
@@ -55,7 +58,11 @@ export const RetailPrintSettingsModal: React.FC<Props> = ({ isOpen, onClose, onS
 
   useEffect(() => {
     if (!isOpen) return;
-    setSettings(currentFromProfile ? { ...DEFAULT_SETTINGS, ...currentFromProfile } : DEFAULT_SETTINGS);
+    setSettings(
+      currentFromProfile
+        ? { ...DEFAULT_SETTINGS, ...currentFromProfile, allowNegativeStock: Boolean((currentFromProfile as any).allowNegativeStock) }
+        : DEFAULT_SETTINGS
+    );
   }, [isOpen, currentFromProfile]);
 
   const save = async () => {
@@ -93,6 +100,22 @@ export const RetailPrintSettingsModal: React.FC<Props> = ({ isOpen, onClose, onS
             type="checkbox"
             checked={settings.enabled}
             onChange={(e) => setSettings((p) => ({ ...p, enabled: e.target.checked }))}
+            className="w-5 h-5"
+          />
+        </div>
+
+        <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg flex items-center justify-between">
+          <div>
+            <div className="font-bold text-gray-900">Permitir venda com estoque negativo</div>
+            <div className="text-sm text-gray-500">
+              Se desativado, o PDV bloqueia a venda quando o estoque não for suficiente.
+            </div>
+          </div>
+
+          <input
+            type="checkbox"
+            checked={settings.allowNegativeStock}
+            onChange={(e) => setSettings((p) => ({ ...p, allowNegativeStock: e.target.checked }))}
             className="w-5 h-5"
           />
         </div>

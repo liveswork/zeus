@@ -3,6 +3,28 @@ import { Order } from '../../../types';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { useAuth } from '../../../contexts/AuthContext';
 
+function resolvePrintDate(v: any): Date {
+  if (!v) return new Date();
+
+  // Date nativo
+  if (v instanceof Date) return v;
+
+  // Firestore Timestamp (web v9) geralmente tem toDate()
+  if (typeof v?.toDate === 'function') return v.toDate();
+
+  // Timestamp “plain” { seconds, nanoseconds }
+  if (typeof v?.seconds === 'number') return new Date(v.seconds * 1000);
+
+  // string / number
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  // fallback
+  return new Date();
+}
+
 interface RetailCustomerPrintProps {
   order: Order;
   format?: 'a4' | '80mm' | '58mm';
@@ -13,7 +35,9 @@ export const RetailCustomerPrint: React.FC<RetailCustomerPrintProps> = ({
   format = '80mm'
 }) => {
   const { userProfile } = useAuth();
-  const date = formatDateTime(order.createdAt || new Date());
+  const date = formatDateTime(
+  resolvePrintDate((order as any).finishedAt ?? (order as any).createdAt)
+);
 
   // pagamentos mistos
   const payments = Array.isArray(order.paymentDetails)
@@ -21,17 +45,37 @@ export const RetailCustomerPrint: React.FC<RetailCustomerPrintProps> = ({
     : [];
 
   return (
-    <div className={`print-container p-4 bg-white text-black font-mono print-${format}`}>
+    <div className={`print-container bg-white text-black font-mono print-${format}`}>
       <style type="text/css" media="print">{`
-        @page { size: ${format === 'a4' ? 'A4' : '80mm auto'}; margin: 0.2cm; }
-        body { -webkit-print-color-adjust: exact; }
-        .print-80mm { width: 72mm; font-size: 10pt; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .font-bold { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 2px; }
-      `}</style>
+  /* Força cupom SEMPRE em pé: largura fixa (80/58) + altura grande (corte no fim) */
+  @page {
+    size: ${
+      format === 'a4'
+        ? 'A4 portrait'
+        : (format === '58mm' ? '58mm 300mm' : '80mm 300mm')
+    };
+    margin: ${format === 'a4' ? '1cm' : '0.2cm'};
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* largura do conteúdo compatível com margem (se quiser, pode usar 58/80 direto também) */
+  .print-80mm { width: 72mm; font-size: 10pt; }
+  .print-58mm { width: 54mm; font-size: 9pt; }
+  .print-a4 { font-size: 12pt; }
+
+  .dash { border-top: 2px dashed #000; margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
+`}</style>
 
       {/* CABEÇALHO */}
       <div className="text-center mb-3">

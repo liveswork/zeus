@@ -3,6 +3,28 @@ import { Order } from '../../../types';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { useAuth } from '../../../contexts/AuthContext';
 
+function resolvePrintDate(v: any): Date {
+  if (!v) return new Date();
+
+  // Date nativo
+  if (v instanceof Date) return v;
+
+  // Firestore Timestamp (web v9) geralmente tem toDate()
+  if (typeof v?.toDate === 'function') return v.toDate();
+
+  // Timestamp “plain” { seconds, nanoseconds }
+  if (typeof v?.seconds === 'number') return new Date(v.seconds * 1000);
+
+  // string / number
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  // fallback
+  return new Date();
+}
+
 interface RetailCounterPrintProps {
   order: Order;
   format?: 'a4' | '80mm' | '58mm';
@@ -17,7 +39,9 @@ function normalizePayments(order: any) {
 
 export const RetailCounterPrint: React.FC<RetailCounterPrintProps> = ({ order, format = '80mm' }) => {
   const { userProfile } = useAuth();
-  const date = formatDateTime(order.createdAt || new Date());
+  const date = formatDateTime(
+  resolvePrintDate((order as any).finishedAt ?? (order as any).createdAt)
+);
   const payments = normalizePayments(order);
 
   const total = Number(order.finalAmount || order.totalAmount || 0);
@@ -26,21 +50,33 @@ export const RetailCounterPrint: React.FC<RetailCounterPrintProps> = ({ order, f
   return (
     <div className={`print-container p-3 bg-white text-black font-mono print-${format}`}>
       <style type="text/css" media="print">{`
-        @page { 
-          size: ${format === 'a4' ? 'A4' : (format === '58mm' ? '58mm auto' : '80mm auto')}; 
-          margin: ${format === 'a4' ? '1cm' : '0.2cm'}; 
-        }
-        body { -webkit-print-color-adjust: exact; }
-        .print-80mm { width: 72mm; font-size: 10pt; }
-        .print-58mm { width: 54mm; font-size: 9pt; }
-        .print-a4 { font-size: 12pt; }
-        .dash { border-top: 2px dashed #000; margin: 8px 0; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 2px 0; vertical-align: top; }
-        .right { text-align: right; }
-        .center { text-align: center; }
-        .bold { font-weight: bold; }
-      `}</style>
+  @page {
+    /* FORÇA ORIENTAÇÃO EM PÉ */
+    size: ${format === 'a4'
+          ? 'A4 portrait'
+          : (format === '58mm' ? '58mm portrait' : '80mm portrait')
+        };
+    margin: ${format === 'a4' ? '10mm' : '0mm'};
+  }
+
+  html, body { margin: 0; padding: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* LARGURA REAL DO PAPEL (sem "auto") */
+  .print-80mm { width: 80mm; font-size: 10pt; }
+  .print-58mm { width: 58mm; font-size: 9pt; }
+  .print-a4   { width: auto; font-size: 12pt; }
+
+  /* padding em mm (mais previsível no print do que Tailwind px) */
+  .print-container { padding: ${format === 'a4' ? '0' : '3mm'}; }
+
+  .dash { border-top: 2px dashed #000; margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
+`}</style>
 
       <div className="center">
         <div className="bold">{userProfile?.companyName || 'Loja'}</div>

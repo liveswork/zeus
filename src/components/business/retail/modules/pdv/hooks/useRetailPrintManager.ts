@@ -41,7 +41,7 @@ export const useRetailPrintManager = () => {
     // Via Cliente
     if (settings.customerReceipt.enabled && settings.customerReceipt.copies > 0) {
       for (let i = 0; i < settings.customerReceipt.copies; i++) {
-        requestPrint({ type: 'retailReceipt', order, format: settings.customerReceipt.format });
+        requestPrint({ type: 'retailCustomer', order, format: settings.customerReceipt.format });
         await sleep(900); // espaçamento seguro
       }
     }

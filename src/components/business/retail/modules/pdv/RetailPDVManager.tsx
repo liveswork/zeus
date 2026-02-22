@@ -15,11 +15,12 @@ import {
   Settings,
 } from 'lucide-react';
 
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '../../../../../config/firebase';
 
 import { useBusiness } from '../../../../../contexts/BusinessContext';
 import { useUI } from '../../../../../contexts/UIContext';
+import { useAuth } from '../../../../../contexts/AuthContext';
 import { formatCurrency } from '../../../../../utils/formatters';
 
 import { useRetailPrintManager } from './hooks/useRetailPrintManager';
@@ -260,6 +261,17 @@ export const RetailPDVManager: React.FC = () => {
   const { products, localCustomers, businessId } = useBusiness();
   const { showAlert } = useUI();
   const { printRetailSale } = useRetailPrintManager();
+  const { userProfile } = useAuth();
+
+  // ✅ opção "Permitir vender com estoque negativo" (salva em printSettings.retailPdv.allowNegativeStock)
+  const allowNegativeStock = useMemo(() => {
+    const anyProfile: any = userProfile || {};
+    const cfg =
+      anyProfile?.printSettings?.retailPdv ||
+      anyProfile?.retailPdvPrintSettings ||
+      null;
+    return Boolean(cfg?.allowNegativeStock);
+  }, [userProfile]);
 
   const compact = useCompactMode();
   const coarse = useCoarsePointer();
@@ -439,10 +451,9 @@ export const RetailPDVManager: React.FC = () => {
 
       // Seleciona o item recém adicionado (ou último)
       setTimeout(() => {
-        setSelectedIndex((prev) => {
+        setSelectedIndex(() => {
           const idx = (cart || []).findIndex((x) => x.id === found.id);
           if (idx >= 0) return idx;
-          // se não existia ainda no "cart" antigo, será o último
           return Math.max(0, cart.length);
         });
       }, 0);
@@ -486,7 +497,7 @@ export const RetailPDVManager: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       if (!isCaixaOpen) return;
 
-      // durante pagamento: PDV inteiro travado (inclusive ESC já bloqueado pelo capture)
+      // durante pagamento: PDV inteiro travado
       if (lockPOS) return;
 
       // Navegação do carrinho (quando não estiver digitando em input)
@@ -566,7 +577,13 @@ export const RetailPDVManager: React.FC = () => {
     showAlert,
   ]);
 
-  // ✅ Firestore: não usar serverTimestamp() dentro de arrays (items[])
+  /**
+   * ✅ Finalizar venda:
+   * - valida estoque (se !allowNegativeStock)
+   * - dá baixa (increment(-qty))
+   * - salva a venda
+   * Tudo numa única transação (consistência).
+   */
   const handleConfirmPayment = useCallback(
     async (payload: {
       payments: Array<{ method: string; amountPaid: number; change: number }>;
@@ -615,8 +632,7 @@ export const RetailPDVManager: React.FC = () => {
           Number(payload.finalAmount) ||
           Math.max(0, subtotal - (payload.discount || 0) + (payload.surcharge || 0));
 
-        const salesCol = collection(db, 'sales');
-        const saleRef = doc(salesCol);
+        const saleRef = doc(collection(db, 'sales'));
 
         const saleDoc = {
           id: saleRef.id,
@@ -652,8 +668,47 @@ export const RetailPDVManager: React.FC = () => {
           observations: '',
         };
 
-        await setDoc(saleRef, saleDoc);
+        await runTransaction(db, async (tx) => {
+          // refs/snapshots
+          const refs = items.map((it: any) => doc(db, 'products', it.productId || it.id));
+          const snaps = await Promise.all(refs.map((r) => tx.get(r)));
 
+          // valida
+          if (!allowNegativeStock) {
+            for (let i = 0; i < items.length; i++) {
+              const it = items[i];
+              const qty = Number(it.qty) || 0;
+              if (qty <= 0) continue;
+
+              const snap = snaps[i];
+              if (!snap.exists()) {
+                throw new Error(`Produto não encontrado: ${it.name || it.productId || it.id}`);
+              }
+
+              const current = Number((snap.data() as any)?.stockQuantity ?? 0);
+              if (current < qty) {
+                throw new Error(`Estoque insuficiente: ${it.name} (disp: ${current}, precisa: ${qty})`);
+              }
+            }
+          }
+
+          // baixa
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            const qty = Number(it.qty) || 0;
+            if (qty <= 0) continue;
+
+            tx.update(refs[i], {
+              stockQuantity: increment(-qty),
+              updatedAt: serverTimestamp(),
+            });
+          }
+
+          // salva venda
+          tx.set(saleRef, saleDoc);
+        });
+
+        // impressão fora da transação
         await printRetailSale({ ...saleDoc });
 
         setCart([]);
@@ -662,12 +717,20 @@ export const RetailPDVManager: React.FC = () => {
         setSelectedIndex(-1);
         showAlert('Venda finalizada com sucesso!');
         focusMainInput();
-      } catch (err) {
+      } catch (err: any) {
         console.error('[RetailPDVManager] erro ao finalizar venda:', err);
-        showAlert('Erro ao finalizar venda.');
+        showAlert(err?.message || 'Erro ao finalizar venda.');
       }
     },
-    [businessId, cart, focusMainInput, printRetailSale, selectedCustomer, showAlert]
+    [
+      allowNegativeStock,
+      businessId,
+      cart,
+      focusMainInput,
+      printRetailSale,
+      selectedCustomer,
+      showAlert,
+    ]
   );
 
   const handleCloseCaixa = useCallback(() => {
@@ -735,6 +798,10 @@ export const RetailPDVManager: React.FC = () => {
               <>Cliente Balcão</>
             )}
           </div>
+          <div className="text-[11px] text-gray-300 mt-3">
+            Estoque negativo:{' '}
+            <span className="font-bold">{allowNegativeStock ? 'PERMITIDO' : 'BLOQUEADO'}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -749,7 +816,7 @@ export const RetailPDVManager: React.FC = () => {
 
           {/* Main */}
           <main className="min-w-0 h-full flex flex-col relative">
-            {/* Overlay PDV (varejista) durante pagamento */}
+            {/* Overlay PDV durante pagamento */}
             {lockPOS && (
               <div className="absolute inset-0 z-30 flex items-start justify-center pointer-events-none">
                 <div className="mt-4 bg-amber-100 border border-amber-300 text-amber-900 px-4 py-2 rounded-xl shadow">
@@ -769,6 +836,9 @@ export const RetailPDVManager: React.FC = () => {
                       <div className="text-xs text-gray-300 truncate">
                         Itens: <b>{cartItemCount}</b> • Total: <b>{formatCurrency(totalAmount)}</b>
                         {selectedCustomer ? ` • ${selectedCustomer.name}` : ' • Cliente Balcão'}
+                      </div>
+                      <div className="text-[11px] text-gray-300">
+                        Estoque negativo: <b>{allowNegativeStock ? 'PERMITIDO' : 'BLOQUEADO'}</b>
                       </div>
                     </div>
                   </div>
@@ -797,7 +867,9 @@ export const RetailPDVManager: React.FC = () => {
 
                 <div className="text-right min-w-0">
                   <div className="text-lg sm:text-xl font-extrabold text-gray-900">CAIXA 001</div>
-                  <div className="text-xs text-gray-500">F12 Finaliza • F2 Cancela • F4 Cliente • ↑↓ Seleciona • Del Remove • +/- Qtd • Enter Qtd</div>
+                  <div className="text-xs text-gray-500">
+                    F12 Finaliza • F2 Cancela • F4 Cliente • ↑↓ Seleciona • Del Remove • +/- Qtd • Enter Qtd
+                  </div>
                 </div>
 
                 <button
@@ -843,9 +915,7 @@ export const RetailPDVManager: React.FC = () => {
                   <div className="flex-1 min-w-[220px] bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-blue-900 truncate">{selectedCustomer.name}</div>
-                      <div className="text-xs text-blue-700 truncate">
-                        {getCustomerPhone(selectedCustomer) || 'sem telefone'}
-                      </div>
+                      <div className="text-xs text-blue-700 truncate">{getCustomerPhone(selectedCustomer) || 'sem telefone'}</div>
                     </div>
                     <button
                       type="button"
@@ -867,7 +937,7 @@ export const RetailPDVManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Carrinho: área elástica */}
+              {/* Carrinho */}
               <div className={`${compact ? 'px-3 pb-2' : 'px-4 pb-3'} flex-1 min-h-0`}>
                 <div className="h-full bg-white rounded-xl shadow-inner overflow-auto">
                   <table className="w-full">
@@ -899,10 +969,10 @@ export const RetailPDVManager: React.FC = () => {
                                 {item.gtin
                                   ? `EAN: ${item.gtin}`
                                   : item.barcode
-                                    ? `Código: ${item.barcode}`
-                                    : item.sku
-                                      ? `SKU: ${item.sku}`
-                                      : ''}
+                                  ? `Código: ${item.barcode}`
+                                  : item.sku
+                                  ? `SKU: ${item.sku}`
+                                  : ''}
                               </div>
                             </td>
 
@@ -969,16 +1039,15 @@ export const RetailPDVManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Footer sticky */}
-              {/* Footer fixo no final (sem sticky) */}
+              {/* Footer */}
               <footer
                 className={`
-    mt-auto flex-shrink-0
-    bg-slate-100/95 backdrop-blur
-    border-t border-slate-200
-    ${compact ? 'p-2' : 'p-3 md:p-4'}
-    [padding-bottom:calc(env(safe-area-inset-bottom)+12px)]
-  `}
+                  mt-auto flex-shrink-0
+                  bg-slate-100/95 backdrop-blur
+                  border-t border-slate-200
+                  ${compact ? 'p-2' : 'p-3 md:p-4'}
+                  [padding-bottom:calc(env(safe-area-inset-bottom)+12px)]
+                `}
               >
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
                   <div className="flex flex-wrap gap-2">
@@ -1008,8 +1077,9 @@ export const RetailPDVManager: React.FC = () => {
                     <div className="text-left md:text-right">
                       <div className="text-xs md:text-sm text-slate-500 font-semibold">Total da Venda</div>
                       <div
-                        className={`font-extrabold text-blue-600 leading-none ${compact ? 'text-3xl' : 'text-3xl sm:text-4xl lg:text-5xl'
-                          }`}
+                        className={`font-extrabold text-blue-600 leading-none ${
+                          compact ? 'text-3xl' : 'text-3xl sm:text-4xl lg:text-5xl'
+                        }`}
                       >
                         {formatCurrency(totalAmount)}
                       </div>
@@ -1046,13 +1116,11 @@ export const RetailPDVManager: React.FC = () => {
         }}
       />
 
-      {/* Modal: Pagamento (ESC travado por capture) */}
+      {/* Modal: Pagamento */}
       {isPaymentOpen && (
         <PdvPaymentModal
           isOpen={isPaymentOpen}
           onClose={() => {
-            // manter fechável por clique no X/backdrop se existir (opcional).
-            // ESC não fecha por conta do listener capture.
             setIsPaymentOpen(false);
             focusMainInput();
           }}

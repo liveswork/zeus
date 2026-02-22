@@ -393,6 +393,31 @@ export interface ProductVariant {
   salePrice?: number;
 }
 
+export interface LabelTemplate {
+  id?: string;
+  name: string;           // Nome do layout (ex: "Gôndola 80x40")
+  businessId: string;     // ID da empresa para multi-tenancy
+  width: number;          // Em mm
+  height: number;         // Em mm
+  elements: LabelElement[]; // O array de elementos que você já utiliza
+  isDefault?: boolean;
+  createdAt: any;
+}
+
+export interface LabelElement {
+  id: string;
+  type: 'text' | 'price' | 'barcode' | 'image';
+  content: string;        // Se for fixo
+  field?: 'name' | 'salePrice' | 'gtin' | 'sku' | 'category'; // Se for dinâmico do produto
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  fontSize?: number;
+  fontWeight?: string;
+}
+
 export interface RecipeItem {
   supplyId: string;
   quantity: number;
@@ -591,11 +616,11 @@ export interface Subcategory {
 
 export interface OrderItem {
   urgent: any;
-  removals: any;
+  // removals: any;
   removals: boolean;
-  additions: any;
+ // additions: any;
   additions: boolean;
-  additions: any;
+ // additions: any;
   id: any;
   cartItemId: any;
   productId: string;

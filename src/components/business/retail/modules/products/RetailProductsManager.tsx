@@ -20,7 +20,8 @@ import { useUI } from '../../../../../contexts/UIContext';
 
 import { Modal } from '../../../../ui/Modal';
 import { StatCard } from '../../../../ui/StatCard';
-import { LabelDesigner } from '../labels/LabelDesigner';
+//import { LabelDesigner } from '../labels/LabelDesigner';
+import { LabelManager } from '../labels/LabelManager';
 
 import { RetailProductForm } from './forms/RetailProductForm';
 import { formatCurrency } from '../../../../../utils/formatters';
@@ -35,6 +36,7 @@ export const RetailProductsManager: React.FC = () => {
   // Modal/Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  //const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Label modal
   const [labelProduct, setLabelProduct] = useState<Product | null>(null);
@@ -337,15 +339,18 @@ export const RetailProductsManager: React.FC = () => {
         </Modal>
       )}
 
-      {/* Modal de Etiquetas (antigo) */}
+      {/* MODAL DE ETIQUETAS (GESTOR) */}
       {labelProduct && (
         <Modal
           isOpen={!!labelProduct}
           onClose={() => setLabelProduct(null)}
-          title={`Etiquetas: ${labelProduct.name}`}
-          maxWidth="max-w-[95vw]"
+          title={`Gerenciar Etiquetas: ${labelProduct.name}`}
+          size="5xl"
         >
-          <LabelDesigner product={labelProduct} onClose={() => setLabelProduct(null)} />
+          <LabelManager
+            product={labelProduct}
+            onClose={() => setLabelProduct(null)}
+          />
         </Modal>
       )}
     </div>
